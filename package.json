@@ -6,15 +6,32 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "import:spare-parts": "node scripts/import-spare-parts.mjs",
+    "import:spare-parts:apply": "node scripts/import-spare-parts.mjs --apply",
+    "seed:demo-fitments": "node scripts/seed-demo-fitments.mjs",
+    "seed:demo-fitments:apply": "node scripts/seed-demo-fitments.mjs --apply"
   },
   "dependencies": {
+    "@emotion/cache": "^11.14.0",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^9.4.0",
+    "@mui/material": "^9.4.0",
+    "@mui/material-nextjs": "^9.4.0",
+    "dotenv": "^17.4.2",
+    "framer-motion": "^13.2.0",
+    "lucide-react": "^1.42.0",
+    "mongoose": "^9.9.5",
     "next": "16.3.4",
+    "nodemailer": "^10.0.13",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/node": "^26.4.1",
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
     "tailwindcss": "^4"
