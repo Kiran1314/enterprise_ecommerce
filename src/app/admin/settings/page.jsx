@@ -208,7 +208,7 @@ export default function AdminSettingsPage() {
               type="submit" 
               variant="contained" 
               startIcon={<Save />}
-              sx={{ bgcolor: '#6600cc', '&:hover': { bgcolor: '#5200a3' }, borderRadius: 2, textTransform: 'none', px: 4, py: 1.2, fontWeight: 'bold' }}
+              sx={{ bgcolor: '#BD5E22', '&:hover': { bgcolor: '#5200a3' }, borderRadius: 2, textTransform: 'none', px: 4, py: 1.2, fontWeight: 'bold' }}
             >
               Save Settings
             </Button>

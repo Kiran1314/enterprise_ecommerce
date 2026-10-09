@@ -21,12 +21,18 @@ export default function AdminBrandsCategoriesPage() {
   const [modalMode, setModalMode] = useState('CREATE');
   const [currentItem, setCurrentItem] = useState(null);
 
+  // Brand Form & Upload State
   const [brandForm, setBrandForm] = useState({ name: '', slug: '', logo: '', description: '', isFeatured: false });
   const brandImageInputRef = useRef(null);
   const [brandImageUploading, setBrandImageUploading] = useState(false);
   const [brandImageUploadError, setBrandImageUploadError] = useState('');
+
+  // Category & Subcategory Form & Upload State
   const [categoryForm, setCategoryForm] = useState({ name: '', slug: '', icon: '', description: '', attributes: [] });
   const [subcategoryForm, setSubcategoryForm] = useState({ parentCategory: '', name: '', slug: '', icon: '', description: '', attributes: [] });
+  const categoryImageInputRef = useRef(null);
+  const [categoryImageUploading, setCategoryImageUploading] = useState(false);
+  const [categoryImageUploadError, setCategoryImageUploadError] = useState('');
 
   const fetchData = () => {
     setLoading(true);
@@ -70,8 +76,14 @@ export default function AdminBrandsCategoriesPage() {
       setBrandImageUploadError('');
       setBrandForm({ name: '', slug: '', logo: '', description: '', isFeatured: false });
     }
-    else if (tabValue === 1) setCategoryForm({ name: '', slug: '', icon: '', description: '', attributes: [] });
-    else setSubcategoryForm({ parentCategory: categories[0]?._id || '', name: '', slug: '', icon: '', description: '', attributes: [] });
+    else if (tabValue === 1) {
+      setCategoryImageUploadError('');
+      setCategoryForm({ name: '', slug: '', icon: '', description: '', attributes: [] });
+    }
+    else {
+      setCategoryImageUploadError('');
+      setSubcategoryForm({ parentCategory: categories[0]?._id || '', name: '', slug: '', icon: '', description: '', attributes: [] });
+    }
     setIsModalOpen(true);
   };
 
@@ -82,11 +94,13 @@ export default function AdminBrandsCategoriesPage() {
       setBrandImageUploadError('');
       setBrandForm({ name: item.name || '', slug: item.slug || '', logo: item.logo || '', description: item.description || '', isFeatured: !!item.isFeatured });
     } else if (tabValue === 1) {
+      setCategoryImageUploadError('');
       setCategoryForm({ 
         name: item.name || '', slug: item.slug || '', icon: item.icon || '', description: item.description || '', 
         attributes: item.attributes ? item.attributes.map(a => ({ name: a.name || '', type: a.type || 'text' })) : [] 
       });
     } else {
+      setCategoryImageUploadError('');
       setSubcategoryForm({ 
         parentCategory: item.parentCategoryId || '', name: item.name || '', slug: item.slug || '', icon: item.icon || '', description: item.description || '', 
         attributes: item.attributes ? item.attributes.map(a => ({ name: a.name || '', type: a.type || 'text' })) : [] 
@@ -113,6 +127,35 @@ export default function AdminBrandsCategoriesPage() {
       setBrandImageUploadError(error.message || 'Brand image upload failed.');
     } finally {
       setBrandImageUploading(false);
+    }
+  };
+
+  const handleCategoryImageUpload = async event => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    setCategoryImageUploading(true);
+    setCategoryImageUploadError('');
+    try {
+      const uploadData = new FormData();
+      uploadData.append('icon', file); // Must match the multer 'uploadIcon.single("icon")' setup
+      
+      const response = await fetch('/api/categories/upload', { method: 'POST', body: uploadData });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.error || result.message || 'Category icon upload failed.');
+      
+      // Update the active form (Category or Subcategory)
+      const iconPath = result.icon || result.data?.icon;
+      if (tabValue === 1) {
+        setCategoryForm(previous => ({ ...previous, icon: iconPath }));
+      } else if (tabValue === 2) {
+        setSubcategoryForm(previous => ({ ...previous, icon: iconPath }));
+      }
+    } catch (error) {
+      setCategoryImageUploadError(error.message || 'Category icon upload failed.');
+    } finally {
+      setCategoryImageUploading(false);
     }
   };
 
@@ -190,7 +233,7 @@ export default function AdminBrandsCategoriesPage() {
           <Typography variant="h5" fontWeight="bold">Brands & Categories Management</Typography>
           <Typography variant="body2" color="text.secondary">Define attributes with 'Text' or 'Image' swatch types.</Typography>
         </Box>
-        <Button variant="contained" startIcon={<Add />} onClick={handleOpenCreate} sx={{ bgcolor: '#6600cc', '&:hover': { bgcolor: '#5200a3' }, borderRadius: 2, textTransform: 'none' }}>
+        <Button variant="contained" startIcon={<Add />} onClick={handleOpenCreate} sx={{ bgcolor: '#BD5E22', '&:hover': { bgcolor: '#5200a3' }, borderRadius: 2, textTransform: 'none' }}>
           {tabValue === 0 ? 'Add Brand' : tabValue === 1 ? 'Add Category' : 'Add Subcategory'}
         </Button>
       </Box>
@@ -228,7 +271,7 @@ export default function AdminBrandsCategoriesPage() {
             {paginatedData.map(item => (
               <TableRow key={item._id} hover>
                 <TableCell><img src={item.icon || item.logo || 'https://img.icons8.com/ios-filled/50/6600cc/shopping-bag.png'} alt="" style={{ width: 36, height: 36, objectFit: 'contain' }} /></TableCell>
-                <TableCell><Typography variant="subtitle2" fontWeight="bold">{tabValue === 2 && <SubdirectoryArrowRight fontSize="small" sx={{ mr: 1, color: '#6600cc' }} />} {item.name}</Typography></TableCell>
+                <TableCell><Typography variant="subtitle2" fontWeight="bold">{tabValue === 2 && <SubdirectoryArrowRight fontSize="small" sx={{ mr: 1, color: '#BD5E22' }} />} {item.name}</Typography></TableCell>
                 {tabValue === 2 && <TableCell><span style={{ background: '#f3e8ff', color: '#6b21a8', padding: '2px 8px', borderRadius: 4, fontSize: '0.75rem', fontWeight: 600 }}>{item.parentCategoryName}</span></TableCell>}
                 <TableCell>
                   {(item.attributes || item.inheritedAttributes)?.map((attr, idx) => {
@@ -284,6 +327,8 @@ export default function AdminBrandsCategoriesPage() {
               else if (tabValue === 1) setCategoryForm({ ...categoryForm, slug: e.target.value });
               else setSubcategoryForm({ ...subcategoryForm, slug: e.target.value });
             }} />
+            
+            {/* BRAND UPLOAD UI */}
             {tabValue === 0 && (
               <Box sx={{ display: 'grid', gap: 1.5 }}>
                 <input ref={brandImageInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleBrandImageUpload} hidden />
@@ -297,6 +342,24 @@ export default function AdminBrandsCategoriesPage() {
                 {brandImageUploadError && <Alert severity="error">{brandImageUploadError}</Alert>}
               </Box>
             )}
+
+            {/* CATEGORY & SUBCATEGORY UPLOAD UI */}
+            {(tabValue === 1 || tabValue === 2) && (
+              <Box sx={{ display: 'grid', gap: 1.5 }}>
+                <input ref={categoryImageInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleCategoryImageUpload} hidden />
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                  <Button variant="outlined" startIcon={<Upload />} onClick={() => categoryImageInputRef.current?.click()} disabled={categoryImageUploading} sx={{ textTransform: 'none' }}>
+                    {categoryImageUploading ? 'Uploading icon...' : (tabValue === 1 ? categoryForm.icon : subcategoryForm.icon) ? 'Replace category icon' : 'Upload category icon'}
+                  </Button>
+                  <Typography variant="caption" color="text.secondary">Upload directly to /assets/images/spare-parts/[cite: 2]</Typography>
+                </Box>
+                {(tabValue === 1 ? categoryForm.icon : subcategoryForm.icon) && (
+                  <Box component="img" src={tabValue === 1 ? categoryForm.icon : subcategoryForm.icon} alt="Category icon preview" sx={{ width: 120, height: 90, objectFit: 'contain', p: 1, border: '1px solid #e2e8f0', borderRadius: 1 }} />
+                )}
+                {categoryImageUploadError && <Alert severity="error">{categoryImageUploadError}</Alert>}
+              </Box>
+            )}
+
             {tabValue !== 0 && (
               <Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
@@ -335,7 +398,7 @@ export default function AdminBrandsCategoriesPage() {
           </DialogContent>
           <DialogActions sx={{ p: 3, bgcolor: '#f8fafc' }}>
             <Button onClick={() => setIsModalOpen(false)}>Cancel</Button>
-            <Button type="submit" variant="contained" disabled={brandImageUploading} sx={{ bgcolor: '#6600cc' }}>Save</Button>
+            <Button type="submit" variant="contained" disabled={brandImageUploading || categoryImageUploading} sx={{ bgcolor: '#BD5E22' }}>Save</Button>
           </DialogActions>
         </Box>
       </Dialog>

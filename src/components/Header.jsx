@@ -1,130 +1,157 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { 
-  Box, Typography, Button, Container, IconButton, Badge, Menu, MenuItem, Fade, TextField, Autocomplete 
-} from '@mui/material';
-import { ShoppingBag, AccountCircle, Search, Close } from '@mui/icons-material';
 import Link from 'next/link';
-import { useCart } from '@/components/Providers';
-import { useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
+import { 
+  Box, Container, TextField, Button, InputAdornment, IconButton, Fade, Paper 
+} from '@mui/material';
+import { 
+  Search, ContactSupport, Settings 
+} from '@mui/icons-material';
 
-export default function Header({ categories = [], searchQuery, setSearchQuery }) {
-  const { cart, setIsCartOpen } = useCart();
-  const router = useRouter();
-  const cartItemCount = cart.reduce((acc, item) => acc + item.quantity, 0);
+export default function Header({ categories = [], searchQuery = '', setSearchQuery }) {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const pathname = usePathname();
 
-  const [accountAnchorEl, setAccountAnchorEl] = useState(null);
-  const [customer, setCustomer] = useState(null);
-  const [suggestions, setSuggestions] = useState([]);
-  const openAccountMenu = Boolean(accountAnchorEl);
-
+  // Close mobile menu automatically when route changes
   useEffect(() => {
-    fetch('/api/customers/me').then(response => response.json()).then(result => {
-      if (result.success) setCustomer(result.data);
-    }).catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    const query = searchQuery?.trim();
-    if (!query || query.length < 2) return undefined;
-    const controller = new AbortController();
-    const timer = setTimeout(() => {
-      fetch(`/api/products?q=${encodeURIComponent(query)}`, { signal: controller.signal })
-        .then(response => response.json())
-        .then(result => setSuggestions(result.success ? result.data : []))
-        .catch(() => {});
-    }, 250);
-    return () => { clearTimeout(timer); controller.abort(); };
-  }, [searchQuery]);
-
-  const handleAccountHover = (e) => setAccountAnchorEl(e.currentTarget);
-  const handleAccountClose = () => setAccountAnchorEl(null);
+    setMobileMenuOpen(false);
+  }, [pathname]);
 
   return (
-    <Box component="header" sx={{ bgcolor: 'var(--auto-ink)', borderBottom: '3px solid var(--auto-red)', position: 'sticky', top: 0, zIndex: 50, boxShadow: '0 2px 8px rgba(0,0,0,.18)' }}>
-      <Container maxWidth="xl" sx={{ minHeight: { xs: 112, md: 94 }, py: 1, px: { xs: 2, md: 4 }, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: { xs: 1, md: 2 } }}>
-        <Link href="/" aria-label="Super Japan home" style={{ display: 'flex', alignItems: 'center', flexShrink: 0, background: '#fff', padding: '3px 9px', borderRadius: 2 }}>
-          <Box component="img" src="/assets/images/logo/logo.jpg" alt="Super Japan Premium Quality Parts" sx={{ display: 'block', width: { xs: 165, sm: 235, md: 290 }, height: 'auto' }} />
-        </Link>
+    <Box component="header" sx={{ bgcolor: '#fff', borderBottom: '1px solid #e2e8f0', position: 'sticky', top: 0, zIndex: 1000 }}>
+      {/* Main Top Navigation Bar */}
+      <Container maxWidth="xl" sx={{ py: 1.5, position: 'relative' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
+          
+          {/* Mobile Left Spacer (Keeps Logo Centered on Mobile) */}
+          <Box sx={{ width: 40, display: { xs: 'block', md: 'none' } }} />
 
-        {searchQuery !== undefined && setSearchQuery && (
-          <Box sx={{ flex: { xs: '1 1 100%', md: 1 }, order: { xs: 3, md: 0 }, maxWidth: { xs: 'none', md: 600 }, mx: { xs: 0, md: 2 } }}>
-            <Autocomplete
-              freeSolo
-              options={searchQuery?.trim().length >= 2 ? suggestions : []}
-              filterOptions={options => options}
-              getOptionLabel={option => typeof option === 'string' ? option : option.title || ''}
-              inputValue={searchQuery || ''}
-              onInputChange={(event, value, reason) => { if (reason === 'input' || reason === 'clear') setSearchQuery(value); }}
-              onChange={(event, option) => {
-                if (option && typeof option === 'object') router.push(`/products/${option.slug || option._id}`);
-              }}
-              noOptionsText={searchQuery?.trim().length >= 2 ? 'No matching products' : 'Type at least 2 characters'}
-              renderOption={(props, option) => (
-                <Box component="li" {...props} key={option._id} sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
-                  <Box component="img" src={option.images?.[0] || '/assets/images/logo/logo.jpg'} alt="" sx={{ width: 42, height: 42, objectFit: 'cover', border: '1px solid #e1e6ea' }} />
-                  <Box sx={{ minWidth: 0 }}>
-                    <Typography variant="body2" fontWeight={700} noWrap>{option.title}</Typography>
-                    <Typography variant="caption" color="text.secondary">{option.sku}</Typography>
-                  </Box>
-                </Box>
-              )}
-              renderInput={params => {
-                const inputSlotProps = params.slotProps?.input || {};
-                return <TextField
-                  {...params}
-                  fullWidth size="small" placeholder="Search products, brands and more"
-                  slotProps={{
-                    ...params.slotProps,
-                    input: {
-                      ...inputSlotProps,
-                      startAdornment: <><Search sx={{ color: '#878787', mr: 1, fontSize: 20 }} />{inputSlotProps.startAdornment}</>,
-                      endAdornment: <>{searchQuery && <IconButton size="small" onClick={() => setSearchQuery('')}><Close fontSize="small" /></IconButton>}{inputSlotProps.endAdornment}</>
-                    }
-                  }}
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1, bgcolor: '#fff', '& fieldset': { border: 'none' } } }}
-                />;
-              }}
-            />
-          </Box>
-        )}
-
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, md: 3 }, order: { xs: 2, md: 0 }, ml: { xs: 'auto', md: 0 } }}>
-          <Link href="/admin/products" style={{ textDecoration: 'none' }}>
-            <Typography variant="body2" fontWeight="bold" color="#fff" sx={{ display: { xs: 'none', sm: 'block' }, '&:hover': { color: 'var(--auto-yellow)' } }}>
-              Admin Console
-            </Typography>
-          </Link>
-
-          <IconButton onClick={() => setIsCartOpen(true)} sx={{ color: '#fff' }}>
-            <Badge badgeContent={cartItemCount} color="warning">
-              <ShoppingBag />
-            </Badge>
-          </IconButton>
-
-          <Box onMouseEnter={handleAccountHover} onMouseLeave={handleAccountClose} sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-            <Link href={customer ? '/account' : '/signup'} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', color: '#fff' }}>
-              <IconButton sx={{ color: '#fff' }}><AccountCircle /></IconButton>
-              <Typography variant="body2" fontWeight="bold" sx={{ display: { xs: 'none', md: 'block' } }}>Account</Typography>
+          {/* Brand Logo (Centered on Mobile, Left-aligned on Desktop) */}
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: { xs: 'center', md: 'flex-start' }, 
+            flexGrow: { xs: 1, md: 0 } 
+          }}>
+            <Link href="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
+              <img src="/assets/images/logo/logo.jpg" alt="Logo" style={{ height: 48, objectFit: 'contain' }} />
             </Link>
-            <Menu
-              anchorEl={accountAnchorEl} open={openAccountMenu} onClose={handleAccountClose}
-              slots={{ transition: Fade }}
-              slotProps={{ 
-                root: { sx: { pointerEvents: 'none' } }, 
-                paper: { onMouseLeave: handleAccountClose } 
+          </Box>
+
+          {/* Gear Icon Toggle for Mobile View */}
+          <Box sx={{ display: { xs: 'flex', md: 'none' }, alignItems: 'center' }}>
+            <IconButton
+              onClick={() => setMobileMenuOpen(prev => !prev)}
+              aria-label="Toggle Menu"
+              sx={{
+                color: mobileMenuOpen ? '#fff' : '#252D3C',
+                bgcolor: mobileMenuOpen ? '#252D3C' : '#f3e8ff',
+                transition: 'transform 0.3s ease, background-color 0.2s ease',
+                transform: mobileMenuOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+                '&:hover': {
+                  bgcolor: mobileMenuOpen ? '#5200a3' : '#e9d5ff'
+                }
               }}
             >
-              <MenuItem sx={{ pointerEvents: 'auto', flexDirection: 'column', alignItems: 'flex-start', p: 2, minWidth: 200 }}>
-                <Typography variant="subtitle2" fontWeight="bold">{customer?.name || 'Guest User'}</Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ mb: 1.5 }}>{customer?.email || 'Access your customer account'}</Typography>
-                <Button component={Link} href={customer ? '/account' : '/signup'} variant="contained" size="small" fullWidth sx={{ textTransform: 'none', bgcolor: 'var(--auto-red)', borderRadius: 1, '&:hover': { bgcolor: 'var(--auto-red-hover)' } }}>
-                  {customer ? 'View account' : 'Sign Up / Login'}
-                </Button>
-              </MenuItem>
-            </Menu>
+              <Settings />
+            </IconButton>
+          </Box>
+
+          {/* Search Input (Full width below logo on mobile, inline on desktop) */}
+          {setSearchQuery && (
+            <Box sx={{ 
+              order: { xs: 3, md: 2 }, 
+              width: { xs: '100%', md: 'auto' }, 
+              flexGrow: 1, 
+              maxWidth: { xs: '100%', md: 520 },
+              mt: { xs: 1, md: 0 }
+            }}>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Search spare parts by name, SKU, or model..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Search sx={{ color: '#64748b' }} />
+                      </InputAdornment>
+                    )
+                  }
+                }}
+                sx={{ bgcolor: '#f8fafc', borderRadius: 2 }}
+              />
+            </Box>
+          )}
+
+          {/* Desktop Navigation Links (Hidden on Mobile) */}
+          <Box sx={{ display: { xs: 'none', md: 'flex' }, order: 3, alignItems: 'center', gap: 2 }}>
+            <Button component={Link} href="/" sx={{ color: '#1e293b', fontWeight: 600, textTransform: 'none' }}>
+              Home
+            </Button>
+            <Button component={Link} href="/products" sx={{ color: '#1e293b', fontWeight: 600, textTransform: 'none' }}>
+              Spare Parts
+            </Button>
+            <Button 
+              component={Link} 
+              href="/contact" 
+              variant="contained" 
+              startIcon={<ContactSupport />}
+              sx={{ bgcolor: '#252D3C', '&:hover': { bgcolor: '#5200a3' }, borderRadius: 2, textTransform: 'none', fontWeight: 'bold' }}
+            >
+              Contact Us
+            </Button>
           </Box>
         </Box>
+
+        {/* Mobile Expandable Menu with Smooth Fade-In Effect */}
+        <Fade in={mobileMenuOpen} timeout={300} unmountOnExit>
+          <Paper
+            elevation={4}
+            sx={{
+              display: { xs: 'flex', md: 'none' },
+              flexDirection: 'column',
+              gap: 1,
+              p: 2,
+              mt: 1.5,
+              borderRadius: 3,
+              border: '1px solid #e2e8f0',
+              bgcolor: '#ffffff'
+            }}
+          >
+            <Button 
+              component={Link} 
+              href="/" 
+              fullWidth 
+              onClick={() => setMobileMenuOpen(false)}
+              sx={{ justifyContent: 'flex-start', color: '#1e293b', fontWeight: 600, textTransform: 'none', py: 1, px: 2, borderRadius: 2, '&:hover': { bgcolor: '#f8fafc' } }}
+            >
+              Home
+            </Button>
+            {/* <Button 
+              component={Link} 
+              href="/products" 
+              fullWidth 
+              onClick={() => setMobileMenuOpen(false)}
+              sx={{ justifyContent: 'flex-start', color: '#1e293b', fontWeight: 600, textTransform: 'none', py: 1, px: 2, borderRadius: 2, '&:hover': { bgcolor: '#f8fafc' } }}
+            >
+              Spare Parts
+            </Button> */}
+            <Button 
+              component={Link} 
+              href="/contact" 
+              variant="contained" 
+              fullWidth
+              startIcon={<ContactSupport />}
+              onClick={() => setMobileMenuOpen(false)}
+              sx={{ bgcolor: '#252D3C', '&:hover': { bgcolor: 'orange' }, borderRadius: 2, textTransform: 'none', fontWeight: 'bold', py: 1.2, mt: 0.5 }}
+            >
+              Contact Us
+            </Button>
+          </Paper>
+        </Fade>
       </Container>
     </Box>
   );

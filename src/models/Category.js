@@ -18,6 +18,7 @@ const CategorySchema = new mongoose.Schema({
   slug: { type: String, required: true, unique: true },
   icon: { type: String },
   description: { type: String },
+  isFeatured: { type: Boolean, default: false }, // Added to support the featured categories fetch
   attributes: [AttributeSchema],
   subcategories: [SubCategorySchema]
 }, { timestamps: true });

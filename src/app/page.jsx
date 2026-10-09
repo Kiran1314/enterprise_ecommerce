@@ -9,6 +9,7 @@ import Link from 'next/link';
 import ProductCard from '@/components/ProductCard';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import FeaturedCategories from '@/components/FeaturedCategories';
 
 const sampleReviews = [
   { authorName: 'Hammad Rahman', location: 'UAE', rating: 5, reviewText: 'Super RF Japan is a great shop with excellent products and services. The staff is friendly and knowledgeable, and they always go the extra mile to help customers. Highly recommended!', reviewDate: '27 July 2025' },
@@ -430,6 +431,10 @@ export default function HomePage() {
             </Box>
           </Container>
         )}
+
+     <FeaturedCategories />
+
+ 
 
         {carouselReviews.length > 0 && <Box component="section" aria-labelledby="owner-reviews-title" sx={{ bgcolor: '#fff', py: { xs: 3, md: 4 }, borderBottom: '1px solid var(--auto-border)' }}>
           <Container maxWidth="xl" sx={{ px: { xs: 2, md: 4 } }}>

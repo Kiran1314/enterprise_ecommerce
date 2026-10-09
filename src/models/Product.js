@@ -35,7 +35,7 @@ const ProductSchema = new mongoose.Schema({
   whatsappNumber: { type: String },
   customTags: [{
     label: { type: String, required: true },
-    bgColor: { type: String, default: '#6600cc' }
+    bgColor: { type: String, default: '#BD5E22' }
   }],
   attributes: [{
     key: { type: String, required: true },
