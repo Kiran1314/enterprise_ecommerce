@@ -1,25 +1,35 @@
 import { NextResponse } from 'next/server';
-import { put } from '@vercel/blob';
+import { writeFile, mkdir } from 'fs/promises';
+import path from 'path';
+import fs from 'fs';
 
 export async function POST(req) {
   try {
     const formData = await req.formData();
-    const file = formData.get('image'); 
+    const file = formData.get('image'); // Matches frontend 'image'
 
     if (!file) {
       return NextResponse.json({ success: false, error: 'No file received.' }, { status: 400 });
     }
 
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+
+    const uploadDir = path.join(process.cwd(), 'public/assets/images/spare-parts');
+    if (!fs.existsSync(uploadDir)) {
+      await mkdir(uploadDir, { recursive: true });
+    }
+
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
     const safeFilename = file.name.replace(/[^a-zA-Z0-9.]/g, '_'); 
-    const uniqueFilename = `products/${Date.now()}-${safeFilename}`;
+    const filename = `${uniqueSuffix}-${safeFilename}`;
+    const filepath = path.join(uploadDir, filename);
 
-    // Upload directly to Vercel Blob storage
-    const blob = await put(uniqueFilename, file, {
-      access: 'public',
-    });
+    await writeFile(filepath, buffer);
 
-    // Return the permanent public URL provided by Vercel Blob
-    return NextResponse.json({ success: true, imageUrl: blob.url });
+    const publicPath = `/assets/images/spare-parts/${filename}`;
+
+    return NextResponse.json({ success: true, imageUrl: publicPath });
   } catch (error) {
     console.error('Product Upload Error:', error);
     return NextResponse.json({ success: false, error: 'Failed to upload product image' }, { status: 500 });

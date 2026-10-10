@@ -1,140 +1,128 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import mongoose from 'mongoose';
-import crypto from 'crypto';
+import dbConnect from '@/lib/dbConnect';
+import Admin from '@/models/Admin';
+import { getAdmin } from '@/lib/adminAuth';
+import {
+  clearSessionCookie,
+  hashPassword,
+  setSessionCookie,
+  verifyPassword,
+} from '@/lib/auth';
 
-const SECRET = process.env.JWT_SECRET || 'ecommerce-admin-secret-key-2026';
-
-function createSessionToken(email) {
-  const payload = JSON.stringify({
-    email,
-    name: 'Administrator',
-    role: 'admin',
-    exp: Date.now() + 7 * 24 * 60 * 60 * 1000
-  });
-  const base64Payload = Buffer.from(payload).toString('base64url');
-  const signature = crypto.createHmac('sha256', SECRET).update(base64Payload).digest('base64url');
-  return `${base64Payload}.${signature}`;
+function publicAdmin(admin) {
+  return {
+    id: String(admin._id),
+    name: admin.name,
+    email: admin.email,
+    role: admin.role,
+  };
 }
 
-function verifySessionToken(token) {
-  try {
-    if (!token) return null;
-    if (token.startsWith('authenticated_')) {
-      return { email: 'admin@autospareparts.com', name: 'Administrator', role: 'admin' };
-    }
-    const [base64Payload, signature] = token.split('.');
-    if (!base64Payload || !signature) return null;
-    const expectedSig = crypto.createHmac('sha256', SECRET).update(base64Payload).digest('base64url');
-    if (signature !== expectedSig) return null;
-    const payload = JSON.parse(Buffer.from(base64Payload, 'base64url').toString('utf-8'));
-    if (payload.exp && Date.now() > payload.exp) return null;
-    return payload;
-  } catch {
-    return null;
+function adminBootstrapCredentials() {
+  const email = (process.env.DEFAULT_SUPER_ADMIN_EMAIL || process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+  const password = process.env.DEFAULT_SUPER_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || '';
+  // Never allow a hard-coded production default credential.
+  if (process.env.NODE_ENV === 'production' && (!email || !password)) return null;
+  if (process.env.NODE_ENV !== 'production') {
+    return {
+      email: email || 'admin@autospareparts.com',
+      password: password || 'admin123',
+    };
   }
+  return { email, password };
 }
 
-// 1. GET /api/admin/auth — Called by src/app/admin/layout.jsx:28 to verify admin session
-export async function GET() {
+export async function GET(request) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get('admin_token')?.value || cookieStore.get('token')?.value;
-    const user = verifySessionToken(token);
-
-    if (!user) {
+    const admin = await getAdmin(request);
+    if (!admin) {
       return NextResponse.json(
         { success: false, authenticated: false, isAuthenticated: false, error: 'Unauthorized' },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
+    const user = publicAdmin(admin);
     return NextResponse.json({
       success: true,
       authenticated: true,
       isAuthenticated: true,
       user,
       admin: user,
-      data: user
+      data: user,
     });
   } catch (error) {
-    return NextResponse.json({ success: false, authenticated: false }, { status: 401 });
+    console.error('Admin session verification failed:', error);
+    return NextResponse.json(
+      { success: false, authenticated: false, isAuthenticated: false, error: 'Unable to verify session' },
+      { status: 500 },
+    );
   }
 }
 
-// 2. POST /api/admin/auth — Called by the Admin Login Form
-export async function POST(req) {
+export async function POST(request) {
   try {
-    const { email, password } = await req.json();
+    const body = await request.json();
+    const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+    const password = typeof body.password === 'string' ? body.password : '';
 
     if (!email || !password) {
       return NextResponse.json({ success: false, error: 'Email and password are required.' }, { status: 400 });
     }
 
-    const normalizedEmail = email.trim().toLowerCase();
-    const envAdminEmail = (process.env.ADMIN_EMAIL || 'admin@autospareparts.com').toLowerCase();
-    const envAdminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+    await dbConnect();
+    let admin = await Admin.findOne({ email }).select('+password');
 
-    let isAuthenticated = false;
-
-    // Check Default / Env Credentials
-    if (normalizedEmail === envAdminEmail && password === envAdminPassword) {
-      isAuthenticated = true;
-    }
-
-    // Optional Fallback: Check MongoDB 'users' or 'admins' collection
-    if (!isAuthenticated && process.env.MONGODB_URI) {
-      if (mongoose.connection.readyState === 0) {
-        await mongoose.connect(process.env.MONGODB_URI);
+    // One-time bootstrap: create the initial SuperAdmin from server-only env vars.
+    // After the record exists, all logins are verified against the Admin collection.
+    if (!admin) {
+      const bootstrap = adminBootstrapCredentials();
+      if (!bootstrap || email !== bootstrap.email || password !== bootstrap.password) {
+        return NextResponse.json({ success: false, error: 'Invalid email or password.' }, { status: 401 });
       }
-      const db = mongoose.connection.db;
-      const adminUser = await db.collection('users').findOne({
-        email: normalizedEmail,
-        $or: [{ role: 'admin' }, { isAdmin: true }]
-      });
 
-      if (adminUser && adminUser.password === password) {
-        isAuthenticated = true;
+      try {
+        admin = await Admin.create({
+          name: 'Administrator',
+          email: bootstrap.email,
+          password: await hashPassword(bootstrap.password),
+          role: 'SuperAdmin',
+          isActive: true,
+        });
+      } catch (error) {
+        // Handle a simultaneous first login without creating duplicate admins.
+        if (error?.code !== 11000) throw error;
+        admin = await Admin.findOne({ email }).select('+password');
       }
     }
 
-    if (!isAuthenticated) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid email or password. (Default: admin@autospareparts.com / admin123)' },
-        { status: 401 }
-      );
+    if (!admin || !admin.isActive || !(await verifyPassword(password, admin.password))) {
+      return NextResponse.json({ success: false, error: 'Invalid email or password, or account disabled.' }, { status: 401 });
     }
 
-    const token = createSessionToken(normalizedEmail);
-    const userObj = { email: normalizedEmail, name: 'Administrator', role: 'admin' };
+    // Upgrade legacy plaintext passwords to scrypt after a successful login.
+    if (!String(admin.password).startsWith('scrypt:')) {
+      admin.password = await hashPassword(password);
+      await admin.save();
+    }
 
+    const user = publicAdmin(admin);
     const response = NextResponse.json({
       success: true,
       authenticated: true,
       isAuthenticated: true,
-      user: userObj,
-      admin: userObj,
-      data: userObj
+      user,
+      admin: user,
+      data: user,
     });
-
-    response.cookies.set('admin_token', token, {
-      httpOnly: true,
-      path: '/',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7 // 7 days
-    });
-
-    return response;
+    return setSessionCookie(response, admin, 'admin');
   } catch (error) {
-    console.error('Admin Auth POST Error:', error);
-    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
+    console.error('Admin login failed:', error);
+    return NextResponse.json({ success: false, error: 'Unable to sign in. Please try again.' }, { status: 500 });
   }
 }
 
-// 3. DELETE /api/admin/auth — Logout handler
 export async function DELETE() {
   const response = NextResponse.json({ success: true, authenticated: false, message: 'Logged out' });
-  response.cookies.delete('admin_token');
-  response.cookies.delete('token');
-  return response;
+  return clearSessionCookie(response);
 }

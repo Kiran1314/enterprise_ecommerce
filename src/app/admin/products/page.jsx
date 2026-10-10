@@ -4,7 +4,7 @@ import {
   Box, Typography, Button, TextField, Table, TableBody, TableCell, TableContainer, 
   TableHead, TableRow, Paper, Dialog, DialogTitle, DialogContent, DialogActions, 
   Checkbox, FormControlLabel, IconButton, Chip, Grid, Autocomplete, Divider, Pagination,
-  FormControl, InputLabel, Select, MenuItem, Alert
+  FormControl, InputLabel, Select, MenuItem, Alert, Tabs, Tab
 } from '@mui/material';
 import { 
   Add, Search, Edit, Delete, Visibility, Close, DeleteSweep as DeleteIcon, 
@@ -44,6 +44,9 @@ export default function AdminProductsPage() {
   const [tagInputLabel, setTagInputLabel] = useState('');
   const [tagInputBgColor, setTagInputBgColor] = useState('#6600cc');
   const [editingTagIndex, setEditingTagIndex] = useState(null);
+
+  // Image Upload Mode Tab State
+  const [imageInputMode, setImageInputMode] = useState('upload'); // 'upload' or 'url'
 
   const [formData, setFormData] = useState({
     title: '',
@@ -135,7 +138,6 @@ export default function AdminProductsPage() {
     });
   }, [dynamicCategoryAttributes, modalMode]);
 
-  // CSV Parser Helper
   const parseCSVText = (text) => {
     const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
     if (lines.length < 2) return [];
@@ -170,7 +172,6 @@ export default function AdminProductsPage() {
     });
   };
 
-  // Download Sample CSV Template
   const handleDownloadCSVTemplate = () => {
     const headers = [
       'title', 'slug', 'sku', 'description', 'price', 'offerPrice', 'comparePrice', 
@@ -203,7 +204,6 @@ export default function AdminProductsPage() {
     document.body.removeChild(link);
   };
 
-  // Handle Bulk CSV File Upload
   const handleCSVImport = async (event) => {
     const file = event.target.files?.[0];
     event.target.value = '';
@@ -369,7 +369,6 @@ export default function AdminProductsPage() {
     setFormData({ ...formData, attributes: updated });
   };
 
-  // Multi-Column Filtering Logic
   const filteredProducts = useMemo(() => {
     return products.filter(product => {
       const matchesTitle = !searchTerm || product.title?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -420,6 +419,7 @@ export default function AdminProductsPage() {
       images: ['', '', ''], brand: brands[0] || null, categories: [], fitments: [], customTags: [], attributes: [], highlights: [],
       isFeatured: false, hasInquiry: false, whatsappNumber: globalSettings?.companyPhone || ''
     });
+    setImageInputMode('upload');
     setIsModalOpen(true);
   };
 
@@ -448,6 +448,7 @@ export default function AdminProductsPage() {
       hasInquiry: !!product.hasInquiry,
       whatsappNumber: product.whatsappNumber || globalSettings?.companyPhone || ''
     });
+    setImageInputMode('upload');
     setIsModalOpen(true);
   };
 
@@ -592,7 +593,6 @@ export default function AdminProductsPage() {
 
   return (
     <Box>
-      {/* Top Action Bar with Bulk CSV Import */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, mb: 3 }}>
         <Box>
           <Typography variant="h5" fontWeight="bold">Products Management</Typography>
@@ -618,7 +618,6 @@ export default function AdminProductsPage() {
         </Alert>
       )}
 
-      {/* Column-Based Filter Bar */}
       <Paper elevation={0} sx={{ p: 2.5, mb: 3, borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: '#f8fafc' }}>
         <Grid container spacing={2} sx={{ alignItems: 'center' }}>
           <Grid size={{ xs: 12, sm: 6, md: 2.5 }}>
@@ -789,6 +788,32 @@ export default function AdminProductsPage() {
                 <Divider sx={{ mb: 1 }} /><Typography variant="subtitle2" fontWeight={800} sx={{ mb: 1 }}>Images</Typography>
                 {currentProduct.images?.length ? <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>{currentProduct.images.map((image, index) => <Box key={`${image}-${index}`} component="img" src={image} alt={`${currentProduct.title} ${index + 1}`} sx={{ width: 88, height: 72, objectFit: 'cover', border: '1px solid #dce2e8', borderRadius: 1 }} />)}</Box> : <Typography color="text.secondary">No product images.</Typography>}
               </Grid>
+              <Grid size={{ xs: 12 }}>
+                <Divider sx={{ mb: 1 }} /><Typography variant="subtitle2" fontWeight={800} sx={{ mb: 1 }}>Category attributes and option stock</Typography>
+                {currentProduct.attributes?.length ? currentProduct.attributes.map((attribute, index) => (
+                  <Box key={`${attribute.key}-${index}`} sx={{ mb: 1.5 }}>
+                    <Typography fontWeight={700}>{attribute.key} <Typography component="span" variant="caption" color="text.secondary">(default: {attribute.value || '—'})</Typography></Typography>
+                    <Typography variant="body2" color="text.secondary">{attribute.options?.map(option => `${option.label}: stock ${option.stock ?? 0}`).join(' · ') || 'No options'}</Typography>
+                  </Box>
+                )) : <Typography color="text.secondary">No category attributes.</Typography>}
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <Divider sx={{ mb: 1 }} /><Typography variant="subtitle2" fontWeight={800} sx={{ mb: 1 }}>Vehicle compatibility</Typography>
+                {currentProduct.fitments?.length ? currentProduct.fitments.map((fitment, index) => <Typography key={index} variant="body2">{fitment.make} {fitment.model} ({fitment.year}) · Stock: {fitment.stock ?? 0}</Typography>) : <Typography color="text.secondary">No vehicle fitments.</Typography>}
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <Divider sx={{ mb: 1 }} /><Typography variant="subtitle2" fontWeight={800} sx={{ mb: 1 }}>Product highlights</Typography>
+                {currentProduct.highlights?.length ? currentProduct.highlights.map((group, groupIndex) => (
+                  <Box key={`${group.mainHeading}-${groupIndex}`} sx={{ mb: 1.5 }}>
+                    <Typography fontWeight={700}>{group.mainHeading}</Typography>
+                    {group.items?.map((item, itemIndex) => <Typography key={itemIndex} variant="body2" sx={{ ml: 1, mt: 0.5 }}><strong>{item.heading}:</strong> {item.description}</Typography>)}
+                  </Box>
+                )) : <Typography color="text.secondary">No product highlights.</Typography>}
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}><Typography variant="overline" color="text.secondary">Featured</Typography><Typography>{currentProduct.isFeatured ? 'Yes' : 'No'}</Typography></Grid>
+              <Grid size={{ xs: 12, sm: 6 }}><Typography variant="overline" color="text.secondary">Enquiry enabled</Typography><Typography>{currentProduct.hasInquiry ? 'Yes' : 'No'}</Typography></Grid>
+              <Grid size={{ xs: 12, sm: 6 }}><Typography variant="overline" color="text.secondary">WhatsApp number</Typography><Typography>{currentProduct.whatsappNumber || '—'}</Typography></Grid>
+              <Grid size={{ xs: 12 }}><Typography variant="overline" color="text.secondary">Custom tags</Typography><Typography>{currentProduct.customTags?.map(tag => tag.label).join(', ') || '—'}</Typography></Grid>
             </Grid>
           </DialogContent>
         ) : <Box component="form" onSubmit={handleFormSubmit} sx={{ display: 'flex', minHeight: 0, flexDirection: 'column' }}>
@@ -840,27 +865,107 @@ export default function AdminProductsPage() {
                 </Box>
               </Grid>
 
-              {/* Main Product Images Upload */}
+              {/* Dynamic Category Attributes */}
+              {formData.attributes && formData.attributes.length > 0 && (
+                <Grid size={{ xs: 12 }}>
+                  <Divider sx={{ my: 1 }} />
+                  <Typography variant="subtitle2" fontWeight="bold" color="#6600cc" sx={{ mb: 1.5 }}>Configure attribute options, variation images, and stock by option</Typography>
+                  {formData.attributes.map((attr, attrIdx) => (
+                    <Paper key={attrIdx} variant="outlined" sx={{ p: 2, mb: 2, bgcolor: '#f8fafc' }}>
+                      <Typography variant="body2" fontWeight="bold" sx={{ mb: 1, color: '#1e293b' }}>
+                        Attribute: <span style={{ color: '#6600cc' }}>{attr.key}</span> ({attr.type || 'text'} type)
+                      </Typography>
+                      <Box sx={{ mb: 2 }}>
+                        {Array.isArray(attr.options) && attr.options.map((opt, optIdx) => (
+                          <Paper key={optIdx} variant="outlined" sx={{ p: 1.5, mb: 1.5, bgcolor: '#fff' }}>
+                            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1, flexWrap: 'wrap' }}>
+                              <TextField sx={{ flex: 2 }} size="small" placeholder="Option Label (e.g. Dark Green / S)" value={opt.label || ''} onChange={e => handleAttributeOptionChange(attrIdx, optIdx, 'label', e.target.value)} />
+                              
+                              {/* Swatch Image Upload */}
+                              {attr.type === 'image' && (
+                                <Box sx={{ display: 'flex', flex: 2, gap: 1, alignItems: 'center' }}>
+                                  <Button variant="outlined" component="label" size="small" disabled={isUploading} sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}>
+                                    {isUploading ? 'Uploading...' : 'Upload Swatch'}
+                                    <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden onChange={e => handleFileUpload(e, (url) => handleAttributeOptionChange(attrIdx, optIdx, 'image', url))} />
+                                  </Button>
+                                  {opt.image && <img src={opt.image} alt="swatch" style={{ width: 36, height: 36, objectFit: 'cover', border: '1px solid #e2e8f0', borderRadius: 4 }} />}
+                                  <TextField fullWidth size="small" placeholder="Or paste URL" value={opt.image || ''} onChange={e => handleAttributeOptionChange(attrIdx, optIdx, 'image', e.target.value)} />
+                                </Box>
+                              )}
+
+                              <TextField sx={{ flex: 1, minWidth: 100 }} type="number" size="small" label="Stock Qty" value={opt.stock !== undefined ? opt.stock : 0} onChange={e => handleAttributeOptionChange(attrIdx, optIdx, 'stock', Number(e.target.value))} />
+                              <IconButton color="error" size="small" onClick={() => removeAttributeOptionField(attrIdx, optIdx)}><Close fontSize="small" /></IconButton>
+                            </Box>
+
+                            {/* Variation Images Upload */}
+                            {attr.type === 'image' && (
+                              <Box sx={{ pl: 2, borderLeft: '2px solid #6600cc', mt: 1 }}>
+                                <Typography variant="caption" fontWeight="bold" color="text.secondary">Variation Thumbnail Images for {opt.label || `Option #${optIdx + 1}`}:</Typography>
+                                {opt.variationImages?.map((varImg, varImgIdx) => (
+                                  <Box key={varImgIdx} sx={{ display: 'flex', gap: 1, mt: 1, alignItems: 'center' }}>
+                                    <Button variant="outlined" component="label" size="small" disabled={isUploading} sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}>
+                                      Upload Image
+                                      <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden onChange={e => handleFileUpload(e, (url) => handleVariationImageChange(attrIdx, optIdx, varImgIdx, url))} />
+                                    </Button>
+                                    {varImg && <img src={varImg} alt="variation" style={{ width: 36, height: 36, objectFit: 'cover', border: '1px solid #e2e8f0', borderRadius: 4 }} />}
+                                    <TextField fullWidth size="small" placeholder={`Variation Image URL #${varImgIdx + 1}`} value={varImg || ''} onChange={e => handleVariationImageChange(attrIdx, optIdx, varImgIdx, e.target.value)} />
+                                    <IconButton color="error" size="small" onClick={() => removeVariationImageField(attrIdx, optIdx, varImgIdx)}><Close fontSize="small" /></IconButton>
+                                  </Box>
+                                ))}
+                                <Button size="small" onClick={() => addVariationImageField(attrIdx, optIdx)} sx={{ mt: 1, textTransform: 'none' }}>+ Add Variation Image Slot</Button>
+                              </Box>
+                            )}
+                          </Paper>
+                        ))}
+                        <Button size="small" onClick={() => addAttributeOptionField(attrIdx)} sx={{ mt: 1 }}>+ Add Option</Button>
+                      </Box>
+                      <TextField fullWidth size="small" label="Default Selected Label" value={attr.value || ''} onChange={e => handleDefaultValueChange(attr.key, e.target.value)} />
+                    </Paper>
+                  ))}
+                </Grid>
+              )}
+
+              {/* Main Product Images Upload - With Tabs */}
               {!hasColorImageAttribute && (
                 <Grid size={{ xs: 12 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                    <Typography variant="caption" fontWeight="bold">PRODUCT IMAGES (Saves to /assets/images/spare-parts/)</Typography>
+                    <Typography variant="caption" fontWeight="bold">PRODUCT IMAGES</Typography>
                     <Button size="small" onClick={addImageField} sx={{ textTransform: 'none' }}>+ Add Image Slot</Button>
                   </Box>
+                  
+                  <Box sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}>
+                    <Tabs value={imageInputMode} onChange={(e, v) => setImageInputMode(v)} size="small" sx={{ minHeight: 36 }}>
+                      <Tab label="Upload to Storage" value="upload" sx={{ minHeight: 36, py: 0, textTransform: 'none' }} />
+                      <Tab label="Paste External URL" value="url" sx={{ minHeight: 36, py: 0, textTransform: 'none' }} />
+                    </Tabs>
+                  </Box>
+
                   {formData.images.map((img, idx) => (
-                    <Box key={idx} sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'center' }}>
-                      <Button variant="outlined" component="label" startIcon={<Upload />} disabled={isUploading} sx={{ minWidth: 160, textTransform: 'none' }}>
-                        {isUploading ? 'Uploading...' : 'Upload Image'}
-                        <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden onChange={e => handleFileUpload(e, (url) => {
+                    imageInputMode === 'upload' ? (
+                      <Box key={idx} sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'center' }}>
+                        <Button variant="outlined" component="label" startIcon={<Upload />} disabled={isUploading} sx={{ minWidth: 160, textTransform: 'none' }}>
+                          {isUploading ? 'Uploading...' : 'Upload Image'}
+                          <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden onChange={e => handleFileUpload(e, (url) => {
+                            const updated = [...formData.images];
+                            updated[idx] = url;
+                            setFormData({ ...formData, images: updated });
+                          })} />
+                        </Button>
+                        {img && <img src={img} alt="preview" style={{ width: 40, height: 40, objectFit: 'cover', border: '1px solid #e2e8f0', borderRadius: 4 }} />}
+                        <TextField fullWidth size="small" placeholder={`Saves to /assets/images/spare-parts/ - Path #${idx + 1}`} value={img} disabled sx={{ bgcolor: '#f1f5f9' }} />
+                        <IconButton color="error" onClick={() => removeImageField(idx)}><DeleteIcon fontSize="small" /></IconButton>
+                      </Box>
+                    ) : (
+                      <Box key={idx} sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'center' }}>
+                        {img && <img src={img} alt="preview" style={{ width: 40, height: 40, objectFit: 'cover', border: '1px solid #e2e8f0', borderRadius: 4 }} />}
+                        <TextField fullWidth size="small" placeholder={`Paste External Image URL #${idx + 1}`} value={img} onChange={e => {
                           const updated = [...formData.images];
-                          updated[idx] = url;
+                          updated[idx] = e.target.value;
                           setFormData({ ...formData, images: updated });
-                        })} />
-                      </Button>
-                      {img && <img src={img} alt="preview" style={{ width: 40, height: 40, objectFit: 'cover', border: '1px solid #e2e8f0', borderRadius: 4 }} />}
-                      <TextField fullWidth size="small" placeholder={`Image Path #${idx + 1}`} value={img} disabled sx={{ bgcolor: '#f1f5f9' }} />
-                      <IconButton color="error" onClick={() => removeImageField(idx)}><DeleteIcon fontSize="small" /></IconButton>
-                    </Box>
+                        }} />
+                        <IconButton color="error" onClick={() => removeImageField(idx)}><DeleteIcon fontSize="small" /></IconButton>
+                      </Box>
+                    )
                   ))}
                 </Grid>
               )}
@@ -868,6 +973,37 @@ export default function AdminProductsPage() {
               <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                 <FormControlLabel control={<Checkbox checked={formData.isFeatured} onChange={e => setFormData({ ...formData, isFeatured: e.target.checked })} />} label="Featured" />
                 <FormControlLabel control={<Checkbox checked={formData.hasInquiry} onChange={e => setFormData({ ...formData, hasInquiry: e.target.checked })} />} label="Enable Inquiry" />
+              </Grid>
+
+              {/* Highlights */}
+              <Grid size={{ xs: 12 }}>
+                <Divider sx={{ my: 2 }} />
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Typography variant="subtitle1" fontWeight="bold" color="#6600cc">Custom Multiple Product Highlights ("All Details")</Typography>
+                  <Button size="small" variant="contained" onClick={addMainHighlightHeading} sx={{ bgcolor: '#6600cc' }}>+ Add Main Heading Group</Button>
+                </Box>
+                {formData.highlights.map((mainGroup, mainIdx) => (
+                  <Paper key={mainIdx} variant="outlined" sx={{ p: 2, mb: 2, bgcolor: '#f8fafc' }}>
+                    <Grid container spacing={2} sx={{ mb: 2, alignItems: 'center' }}>
+                      <Grid size={{ xs: 10 }}>
+                        <TextField fullWidth required size="small" label="Main Heading" value={mainGroup.mainHeading} onChange={e => handleMainHeadingChange(mainIdx, e.target.value)} />
+                      </Grid>
+                      <Grid size={{ xs: 2 }} sx={{ textAlign: 'right' }}>
+                        <Button size="small" color="error" onClick={() => removeMainHighlightHeading(mainIdx)}>Remove</Button>
+                      </Grid>
+                    </Grid>
+                    <Box sx={{ pl: 2, borderLeft: '3px solid #6600cc' }}>
+                      {mainGroup.items.map((item, itemIdx) => (
+                        <Grid container spacing={1.5} key={itemIdx} sx={{ mb: 1, alignItems: 'center' }}>
+                          <Grid size={{ xs: 5 }}><TextField fullWidth required size="small" label="Heading" value={item.heading} onChange={e => handleHighlightItemChange(mainIdx, itemIdx, 'heading', e.target.value)} /></Grid>
+                          <Grid size={{ xs: 6 }}><TextField fullWidth required size="small" label="Description" value={item.description} onChange={e => handleHighlightItemChange(mainIdx, itemIdx, 'description', e.target.value)} /></Grid>
+                          <Grid size={{ xs: 1 }}><IconButton color="error" size="small" onClick={() => removeHighlightItem(mainIdx, itemIdx)}><Close fontSize="small" /></IconButton></Grid>
+                        </Grid>
+                      ))}
+                      <Button size="small" onClick={() => addHighlightItem(mainIdx)} sx={{ mt: 1 }}>+ Add Item</Button>
+                    </Box>
+                  </Paper>
+                ))}
               </Grid>
 
               <Grid size={{ xs: 12 }}><TextField fullWidth required multiline rows={3} label="Description" size="small" value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} /></Grid>

@@ -1,29 +1,26 @@
 import { NextResponse } from 'next/server';
 
-export function middleware(req) {
-  const { pathname } = req.nextUrl;
+export function middleware(request) {
+  const { pathname } = request.nextUrl;
+  if (!pathname.startsWith('/admin')) return NextResponse.next();
 
-  // Only guard /admin routes
-  if (pathname.startsWith('/admin')) {
-    const token = req.cookies.get('admin_token')?.value;
-    const isLoginPage = pathname === '/admin/login';
+  const isLoginPage = pathname === '/admin/login';
+  // Middleware performs only a presence check to avoid loading Node crypto into
+  // the middleware runtime. The signed session is verified by /api/admin/auth
+  // and every protected API route on the server.
+  const hasSessionCookie = Boolean(request.cookies.get('store_session')?.value);
 
-    // If unauthenticated and trying to access any protected /admin page -> Redirect to /admin/login
-    if (!token && !isLoginPage) {
-      const loginUrl = new URL('/admin/login', req.url);
-      loginUrl.searchParams.set('redirect', pathname);
-      return NextResponse.redirect(loginUrl);
-    }
+  if (!hasSessionCookie && !isLoginPage) {
+    const loginUrl = new URL('/admin/login', request.url);
+    loginUrl.searchParams.set('redirect', pathname);
+    return NextResponse.redirect(loginUrl);
+  }
 
-    // If already authenticated and visiting /admin/login -> Redirect to /admin/products
-    if (token && isLoginPage) {
-      return NextResponse.redirect(new URL('/admin/products', req.url));
-    }
+  if (hasSessionCookie && isLoginPage) {
+    return NextResponse.redirect(new URL('/admin/products', request.url));
   }
 
   return NextResponse.next();
 }
 
-export const config = {
-  matcher: ['/admin/:path*']
-};
+export const config = { matcher: ['/admin/:path*'] };

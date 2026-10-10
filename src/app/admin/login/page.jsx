@@ -10,10 +10,13 @@ import {
   Email, Lock, Visibility, VisibilityOff, Login, ArrowBack 
 } from '@mui/icons-material';
 
-// 1. Separate the logic using useSearchParams into its own component
+// Separate the logic using useSearchParams into its own component
 function LoginForm() {
   const searchParams = useSearchParams();
-  const redirectPath = searchParams.get('redirect') || '/admin/products';
+  const requestedRedirect = searchParams.get('redirect') || '/admin/products';
+  const redirectPath = requestedRedirect.startsWith('/admin/') && !requestedRedirect.startsWith('//') && requestedRedirect !== '/admin/login'
+    ? requestedRedirect
+    : '/admin/products';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -35,24 +38,14 @@ function LoginForm() {
         body: JSON.stringify({ email: normalizedEmail, password })
       });
 
-      // If API route is missing (404), use built-in credential check & set cookie directly
-      if (res.status === 404) {
-        const defaultEmail = (process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'admin@autospareparts.com').toLowerCase();
-        const defaultPass = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'admin123';
-
-        if (normalizedEmail === defaultEmail && password === defaultPass) {
-          const maxAge = 60 * 60 * 24 * 7; // 7 days
-          document.cookie = `admin_token=authenticated_${Date.now()}; path=/; max-age=${maxAge}; SameSite=Lax`;
-          window.location.href = redirectPath;
-          return;
-        } else {
-          throw new Error('Invalid admin email or password. (Default: admin@autospareparts.com / admin123)');
-        }
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Invalid email or password.');
       }
 
       const data = await res.json();
 
-      if (!res.ok || !data.success) {
+      if (!data.success) {
         throw new Error(data.error || 'Invalid email or password.');
       }
 
@@ -177,7 +170,7 @@ function LoginForm() {
   );
 }
 
-// 2. Wrap the child component in a Suspense boundary in the default export
+// Wrap the child component in a Suspense boundary in the default export
 export default function AdminLoginPage() {
   return (
     <Box
