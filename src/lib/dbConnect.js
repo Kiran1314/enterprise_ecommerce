@@ -1,9 +1,25 @@
 import mongoose from 'mongoose';
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/enterprise_ecommerce';
+function getMongoUri() {
+  const uri = process.env.MONGODB_URI?.trim();
 
-if (!MONGODB_URI) {
-  throw new Error('Please define the MONGODB_URI environment variable inside .env.local');
+  if (!uri) {
+    throw new Error(
+      'MONGODB_URI is missing. Configure it in Vercel Project Settings → Environment Variables.'
+    );
+  }
+
+  if (uri.startsWith('"') || uri.endsWith('"') || uri.includes('\\:') || uri.includes('\\@')) {
+    throw new Error(
+      'MONGODB_URI appears to contain copied quotes or escaped characters. In Vercel, enter the raw MongoDB URI without surrounding quotes or backslashes.'
+    );
+  }
+
+  if (!uri.startsWith('mongodb://') && !uri.startsWith('mongodb+srv://')) {
+    throw new Error('MONGODB_URI must start with mongodb:// or mongodb+srv://.');
+  }
+
+  return uri;
 }
 
 let cached = global.mongoose;
@@ -13,25 +29,22 @@ if (!cached) {
 }
 
 async function dbConnect() {
-  if (cached.conn) {
-    return cached.conn;
-  }
+  if (cached.conn) return cached.conn;
 
   if (!cached.promise) {
-    const opts = {
+    const uri = getMongoUri();
+    cached.promise = mongoose.connect(uri, {
       bufferCommands: false,
-    };
-
-    cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {
-      return mongoose;
-    });
+      serverSelectionTimeoutMS: 10000,
+    }).then((mongooseInstance) => mongooseInstance);
   }
-  
+
   try {
     cached.conn = await cached.promise;
-  } catch (e) {
+  } catch (error) {
     cached.promise = null;
-    throw e;
+    cached.conn = null;
+    throw error;
   }
 
   return cached.conn;
