@@ -40,7 +40,7 @@ export default function AdminLayout({ children }) {
   }, [pathname, router]);
 
   const menuItems = [
-    // { text: 'Dashboard', icon: <Dashboard />, path: '/admin' },
+    { text: 'Dashboard', icon: <Dashboard />, path: '/admin' },
     { text: 'Products', icon: <Inventory />, path: '/admin/products' },
     //{ text: 'Orders', icon: <Badge badgeContent={pendingOrders} color="error" max={99}><ReceiptLong /></Badge>, path: '/admin/orders' },
     { text: 'Brands & Categories', icon: <Category />, path: '/admin/brands' },

@@ -26,7 +26,7 @@ export default function AdminDashboardPage() {
   return (
     <Box>
       <Typography component="h1" variant="h4" fontWeight={850} sx={{ mb: 3 }}>Dashboard</Typography>
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2, mb: 4 }}>
+    {/*   <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2, mb: 4 }}>
         {[
           { label: 'Orders', value: orders.length },
           { label: 'New / pending', value: pendingCount },
@@ -35,7 +35,7 @@ export default function AdminDashboardPage() {
           <Typography variant="body2" color="text.secondary">{metric.label}</Typography>
           <Typography variant="h4" fontWeight={850} sx={{ mt: 1 }}>{metric.value}</Typography>
         </Paper>)}
-      </Box>
+      </Box> */}
       <Typography component="h2" variant="h6" fontWeight={850} sx={{ mb: 1.5 }}>Live activity</Typography>
       <Paper elevation={0} sx={{ border: '1px solid #dce2e8', borderRadius: 1, overflow: 'hidden' }}>
         {logs.length === 0 ? <Typography sx={{ p: 3 }} color="text.secondary">No recent activity.</Typography> : logs.map(log => (

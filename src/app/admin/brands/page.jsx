@@ -26,6 +26,7 @@ export default function AdminBrandsCategoriesPage() {
   const brandImageInputRef = useRef(null);
   const [brandImageUploading, setBrandImageUploading] = useState(false);
   const [brandImageUploadError, setBrandImageUploadError] = useState('');
+  const [brandImageInputMode, setBrandImageInputMode] = useState('upload'); // 'upload' | 'url'
 
   // Category & Subcategory Form & Upload State
   const [categoryForm, setCategoryForm] = useState({ name: '', slug: '', icon: '', description: '', attributes: [] });
@@ -33,6 +34,7 @@ export default function AdminBrandsCategoriesPage() {
   const categoryImageInputRef = useRef(null);
   const [categoryImageUploading, setCategoryImageUploading] = useState(false);
   const [categoryImageUploadError, setCategoryImageUploadError] = useState('');
+  const [categoryImageInputMode, setCategoryImageInputMode] = useState('upload'); // 'upload' | 'url'
 
   const fetchData = () => {
     setLoading(true);
@@ -72,6 +74,8 @@ export default function AdminBrandsCategoriesPage() {
 
   const handleOpenCreate = () => {
     setModalMode('CREATE');
+    setBrandImageInputMode('upload');
+    setCategoryImageInputMode('upload');
     if (tabValue === 0) {
       setBrandImageUploadError('');
       setBrandForm({ name: '', slug: '', logo: '', description: '', isFeatured: false });
@@ -89,6 +93,8 @@ export default function AdminBrandsCategoriesPage() {
 
   const handleOpenEdit = (item) => {
     setModalMode('EDIT');
+    setBrandImageInputMode('upload');
+    setCategoryImageInputMode('upload');
     setCurrentItem(item);
     if (tabValue === 0) {
       setBrandImageUploadError('');
@@ -328,33 +334,91 @@ export default function AdminBrandsCategoriesPage() {
               else setSubcategoryForm({ ...subcategoryForm, slug: e.target.value });
             }} />
             
-            {/* BRAND UPLOAD UI */}
+            {/* BRAND IMAGE: upload or external URL */}
             {tabValue === 0 && (
               <Box sx={{ display: 'grid', gap: 1.5 }}>
-                <input ref={brandImageInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleBrandImageUpload} hidden />
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                  <Button variant="outlined" startIcon={<Upload />} onClick={() => brandImageInputRef.current?.click()} disabled={brandImageUploading} sx={{ textTransform: 'none' }}>
-                    {brandImageUploading ? 'Uploading image...' : brandForm.logo ? 'Replace brand image' : 'Upload brand image'}
-                  </Button>
-                  <Typography variant="caption" color="text.secondary">JPG, PNG, WebP, or GIF. Maximum 8 MB.</Typography>
+                <Typography variant="subtitle2" fontWeight="bold">Brand Image</Typography>
+                <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                  <Tabs value={brandImageInputMode} onChange={(event, value) => setBrandImageInputMode(value)} sx={{ minHeight: 36 }}>
+                    <Tab value="upload" label="Upload to Storage" sx={{ minHeight: 36, py: 0, textTransform: 'none' }} />
+                    <Tab value="url" label="Paste External URL" sx={{ minHeight: 36, py: 0, textTransform: 'none' }} />
+                  </Tabs>
                 </Box>
-                {brandForm.logo && <Box component="img" src={brandForm.logo} alt="Brand image preview" sx={{ width: 120, height: 90, objectFit: 'contain', p: 1, border: '1px solid #e2e8f0', borderRadius: 1 }} />}
+                {brandImageInputMode === 'upload' ? (
+                  <>
+                    <input ref={brandImageInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleBrandImageUpload} hidden />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                      <Button variant="outlined" startIcon={<Upload />} onClick={() => brandImageInputRef.current?.click()} disabled={brandImageUploading} sx={{ textTransform: 'none' }}>
+                        {brandImageUploading ? 'Uploading image...' : brandForm.logo ? 'Replace brand image' : 'Upload brand image'}
+                      </Button>
+                      <Typography variant="caption" color="text.secondary">JPG, PNG, WebP, or GIF. Maximum 8 MB.</Typography>
+                    </Box>
+                    {brandForm.logo && <TextField fullWidth size="small" label="Stored image path" value={brandForm.logo} slotProps={{ input: { readOnly: true } }} />}
+                  </>
+                ) : (
+                  <TextField
+                    fullWidth size="small" label="External brand image URL" placeholder="https://example.com/brand-logo.png"
+                    value={brandForm.logo}
+                    onChange={event => setBrandForm(previous => ({ ...previous, logo: event.target.value.trimStart() }))}
+                    helperText="Paste a publicly accessible HTTPS image URL. The URL is saved directly; no file is uploaded."
+                    type="url"
+                  />
+                )}
+                {brandForm.logo && (
+                  <Box component="img" src={brandForm.logo} alt="Brand image preview"
+                    onError={event => { event.currentTarget.style.display = 'none'; }}
+                    onLoad={event => { event.currentTarget.style.display = 'block'; }}
+                    sx={{ width: 120, height: 90, objectFit: 'contain', p: 1, border: '1px solid #e2e8f0', borderRadius: 1 }}
+                  />
+                )}
                 {brandImageUploadError && <Alert severity="error">{brandImageUploadError}</Alert>}
               </Box>
             )}
 
-            {/* CATEGORY & SUBCATEGORY UPLOAD UI */}
+            {/* CATEGORY / SUBCATEGORY ICON: upload or external URL */}
             {(tabValue === 1 || tabValue === 2) && (
               <Box sx={{ display: 'grid', gap: 1.5 }}>
-                <input ref={categoryImageInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleCategoryImageUpload} hidden />
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                  <Button variant="outlined" startIcon={<Upload />} onClick={() => categoryImageInputRef.current?.click()} disabled={categoryImageUploading} sx={{ textTransform: 'none' }}>
-                    {categoryImageUploading ? 'Uploading icon...' : (tabValue === 1 ? categoryForm.icon : subcategoryForm.icon) ? 'Replace category icon' : 'Upload category icon'}
-                  </Button>
-                  <Typography variant="caption" color="text.secondary">Upload directly to /assets/images/spare-parts/[cite: 2]</Typography>
+                <Typography variant="subtitle2" fontWeight="bold">{tabValue === 1 ? 'Category Image' : 'Subcategory Image'}</Typography>
+                <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                  <Tabs value={categoryImageInputMode} onChange={(event, value) => setCategoryImageInputMode(value)} sx={{ minHeight: 36 }}>
+                    <Tab value="upload" label="Upload to Storage" sx={{ minHeight: 36, py: 0, textTransform: 'none' }} />
+                    <Tab value="url" label="Paste External URL" sx={{ minHeight: 36, py: 0, textTransform: 'none' }} />
+                  </Tabs>
                 </Box>
+                {categoryImageInputMode === 'upload' ? (
+                  <>
+                    <input ref={categoryImageInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleCategoryImageUpload} hidden />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                      <Button variant="outlined" startIcon={<Upload />} onClick={() => categoryImageInputRef.current?.click()} disabled={categoryImageUploading} sx={{ textTransform: 'none' }}>
+                        {categoryImageUploading ? 'Uploading icon...' : (tabValue === 1 ? categoryForm.icon : subcategoryForm.icon) ? 'Replace image' : 'Upload image'}
+                      </Button>
+                      <Typography variant="caption" color="text.secondary">JPG, PNG, WebP, or GIF.</Typography>
+                    </Box>
+                    {(tabValue === 1 ? categoryForm.icon : subcategoryForm.icon) && (
+                      <TextField fullWidth size="small" label="Stored image path" value={tabValue === 1 ? categoryForm.icon : subcategoryForm.icon} slotProps={{ input: { readOnly: true } }} />
+                    )}
+                  </>
+                ) : (
+                  <TextField
+                    fullWidth size="small" label={tabValue === 1 ? 'External category image URL' : 'External subcategory image URL'}
+                    placeholder="https://example.com/category-image.png"
+                    value={tabValue === 1 ? categoryForm.icon : subcategoryForm.icon}
+                    onChange={event => {
+                      const value = event.target.value.trimStart();
+                      if (tabValue === 1) setCategoryForm(previous => ({ ...previous, icon: value }));
+                      else setSubcategoryForm(previous => ({ ...previous, icon: value }));
+                    }}
+                    helperText="Paste a publicly accessible HTTPS image URL. The URL is saved directly; no file is uploaded."
+                    type="url"
+                  />
+                )}
                 {(tabValue === 1 ? categoryForm.icon : subcategoryForm.icon) && (
-                  <Box component="img" src={tabValue === 1 ? categoryForm.icon : subcategoryForm.icon} alt="Category icon preview" sx={{ width: 120, height: 90, objectFit: 'contain', p: 1, border: '1px solid #e2e8f0', borderRadius: 1 }} />
+                  <Box component="img" src={tabValue === 1 ? categoryForm.icon : subcategoryForm.icon}
+                    alt={tabValue === 1 ? 'Category image preview' : 'Subcategory image preview'}
+                    onError={event => { event.currentTarget.style.display = 'none'; }}
+                    onLoad={event => { event.currentTarget.style.display = 'block'; }}
+                    sx={{ width: 120, height: 90, objectFit: 'contain', p: 1, border: '1px solid #e2e8f0', borderRadius: 1 }}
+                  />
                 )}
                 {categoryImageUploadError && <Alert severity="error">{categoryImageUploadError}</Alert>}
               </Box>
