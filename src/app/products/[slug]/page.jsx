@@ -8,7 +8,7 @@ import { useParams } from 'next/navigation';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { getProductPricing } from '@/lib/productPricing';
-import ProductCard from '@/components/ProductCard_old';
+import ProductCard from '@/components/ProductCard';
 import { useCart } from '@/components/Providers';
 
 export default function ProductDetailPage() {
