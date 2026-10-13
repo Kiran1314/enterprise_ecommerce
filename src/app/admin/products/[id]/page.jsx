@@ -7,7 +7,7 @@ import { ShoppingBag, Search, ExpandMore, ExpandLess, FilterList } from '@mui/ic
 import Link from 'next/link';
 import { useCart } from '@/components/Providers';
 import { useParams } from 'next/navigation';
-import ProductCard from '@/components/ProductCard_old';
+import ProductCard from '@/components/ProductCard';
 
 export default function ProductDetailPage() {
   const params = useParams();
