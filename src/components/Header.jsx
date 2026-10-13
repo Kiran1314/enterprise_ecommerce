@@ -91,15 +91,15 @@ export default function Header({ categories = [], searchQuery = '', setSearchQue
             <Button component={Link} href="/" sx={{ color: '#1e293b', fontWeight: 600, textTransform: 'none' }}>
               Home
             </Button>
-            <Button component={Link} href="/products" sx={{ color: '#1e293b', fontWeight: 600, textTransform: 'none' }}>
-              Spare Parts
+            <Button component={Link} href="/about" sx={{ color: '#1e293b', fontWeight: 600, textTransform: 'none' }}>
+              About us
             </Button>
             <Button 
               component={Link} 
               href="/contact" 
               variant="contained" 
               startIcon={<ContactSupport />}
-              sx={{ bgcolor: '#252D3C', '&:hover': { bgcolor: '#5200a3' }, borderRadius: 2, textTransform: 'none', fontWeight: 'bold' }}
+              sx={{ bgcolor: '#252D3C', '&:hover': { bgcolor: '#BD5E22' }, borderRadius: 2, textTransform: 'none', fontWeight: 'bold' }}
             >
               Contact Us
             </Button>
@@ -130,15 +130,15 @@ export default function Header({ categories = [], searchQuery = '', setSearchQue
             >
               Home
             </Button>
-            {/* <Button 
+            { <Button 
               component={Link} 
-              href="/products" 
+              href="/about" 
               fullWidth 
               onClick={() => setMobileMenuOpen(false)}
               sx={{ justifyContent: 'flex-start', color: '#1e293b', fontWeight: 600, textTransform: 'none', py: 1, px: 2, borderRadius: 2, '&:hover': { bgcolor: '#f8fafc' } }}
             >
-              Spare Parts
-            </Button> */}
+              About us
+            </Button> }
             <Button 
               component={Link} 
               href="/contact" 
@@ -146,7 +146,7 @@ export default function Header({ categories = [], searchQuery = '', setSearchQue
               fullWidth
               startIcon={<ContactSupport />}
               onClick={() => setMobileMenuOpen(false)}
-              sx={{ bgcolor: '#252D3C', '&:hover': { bgcolor: 'orange' }, borderRadius: 2, textTransform: 'none', fontWeight: 'bold', py: 1.2, mt: 0.5 }}
+              sx={{ bgcolor: '#252D3C', '&:hover': { bgcolor: '#BD5E22' }, borderRadius: 2, textTransform: 'none', fontWeight: 'bold', py: 1.2, mt: 0.5 }}
             >
               Contact Us
             </Button>
