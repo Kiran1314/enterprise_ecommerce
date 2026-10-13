@@ -1,7 +1,8 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { Box, Container, Grid, Paper, Typography, Button, Fade } from '@mui/material';
-import { ArrowBack, EmojiEvents, Groups, SupportAgent } from '@mui/icons-material';
+import { ArrowBack, EmojiEvents, Groups} from '@mui/icons-material';
+import StarsIcon from '@mui/icons-material/Stars';
 import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -88,7 +89,7 @@ export default function AboutUsPage() {
         <Grid container spacing={6} sx={{ alignItems: 'center', mb: 10 }}>
           
           {/* COLUMN 1: About Us Data */}
-          <Grid size={{ xs: 12, md: 6 }}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <Fade in={loaded} timeout={800}>
               <Box>
                 <Typography variant="h3" fontWeight="900" color="#0f172a" gutterBottom sx={{ letterSpacing: '-1px' }}>
@@ -102,14 +103,14 @@ export default function AboutUsPage() {
                   Welcome to SuperRFJapan Auto Spare Parts Company, your trusted partner for high-quality automotive components in the United Arab Emirates. We specialize in providing a comprehensive range of genuine and aftermarket spare parts to keep your vehicles running at peak performance.
                 </Typography>
                 <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.8, fontSize: '1.05rem' }}>
-                  Our commitment to excellence, rigorous quality checks, and customer-first approach have made us a premier destination for mechanics, auto shops, and car enthusiasts across the region. We ensure that you get the right part, at the right price, exactly when you need it.
+                  We ensure that you get the right part, at the right price, exactly when you need it.
                 </Typography>
               </Box>
             </Fade>
           </Grid>
           
           {/* COLUMN 2: Video Player */}
-          <Grid size={{ xs: 12, md: 6 }}>
+          <Grid size={{ xs: 12, md: 8 }}>
             <Fade in={loaded} timeout={1200}>
               <Box sx={{ 
                 width: '100%', 
@@ -121,10 +122,9 @@ export default function AboutUsPage() {
                 position: 'relative'
               }}>
                 <video 
-                  src="https://www.w3schools.com/html/mov_bbb.mp4" 
+                  src="https://e2muzpjmksmg0rxf.public.blob.vercel-storage.com/Videos/Superjapan_promo.mp4" 
                   autoPlay 
                   loop 
-                  muted 
                   playsInline
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
@@ -138,9 +138,9 @@ export default function AboutUsPage() {
           {/* FIXED: Moved justifyContent and alignItems into the sx prop */}
           <Grid container spacing={4} sx={{ justifyContent: 'center', alignItems: 'center', maxWidth: 900 }}>
             {[
-              { end: 2500, suffix: '+', title: 'Happy Customers', icon: <Groups fontSize="large" sx={{ color: '#BD5E22' }}/> },
+              { end: 2500, suffix: '+', title: 'Happy Customers Throughout UAE', icon: <Groups fontSize="large" sx={{ color: '#BD5E22' }}/> },
               { end: 5, suffix: '+', title: 'Years of Completion', icon: <EmojiEvents fontSize="large" sx={{ color: '#BD5E22' }}/> },
-              { end: 10, suffix: '+', title: 'Years of Experience', icon: <SupportAgent fontSize="large" sx={{ color: '#BD5E22' }}/> }
+              { end: 10, suffix: '+', title: 'Years of Experience', icon: <StarsIcon fontSize="large" sx={{ color: '#BD5E22' }}/> }
             ].map((stat, index) => (
               <Grid size={{ xs: 12, sm: 4 }} key={index} sx={{ display: 'flex', justifyContent: 'center' }}>
                 <Fade in={loaded} timeout={1000 + (index * 400)}>
