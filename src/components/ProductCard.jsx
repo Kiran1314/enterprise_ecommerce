@@ -1,11 +1,13 @@
 'use client';
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useCart } from './Providers';
 import { ShoppingCart, MessageCircle, Eye } from 'lucide-react';
 import Link from 'next/link';
 import { getProductPricing } from '@/lib/productPricing';
 
 export default function ProductCard({ product }) {
+  const router = useRouter();
   const { addToCart } = useCart();
   const [currency, setCurrency] = useState('$');
   const [selectedImageIdx, setSelectedImageIdx] = useState(0);
@@ -49,8 +51,16 @@ export default function ProductCard({ product }) {
     ? product.images
     : (firstColorVarImg ? [firstColorVarImg] : ['https://via.placeholder.com/300']);
 
+  // Navigate to product page when the main card is clicked
+  const handleCardClick = () => {
+    router.push(`/product/${product.slug || product._id}`);
+  };
+
   return (
-    <div className="bg-white rounded-md overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 flex flex-col relative group border border-gray-100">
+    <div 
+      onClick={handleCardClick}
+      className="bg-white rounded-md overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 flex flex-col relative group border border-gray-100 cursor-pointer h-full"
+    >
       <div className="absolute top-2 left-2 z-20 flex flex-col gap-1 items-start">
         {product.customTags?.map((tag, idx) => (
           <span key={idx} style={{ backgroundColor: tag.bgColor || '#d87532' }} className="text-white text-[10px] px-1.5 py-0.5 rounded font-black shadow-sm">
@@ -81,16 +91,17 @@ export default function ProductCard({ product }) {
           </div>
         )}
 
+        {/* Replaced internal Link with a span to avoid nested <a> tags, relying on the outer div's onClick */}
         <div className="absolute inset-x-0 bottom-0 p-2 bg-linear-to-t from-black/60 to-transparent translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-in-out flex gap-1.5 z-10">
-          <Link href={`/products/${product.slug || product._id}`} className="flex-1 flex items-center justify-center gap-1 bg-white text-gray-900 py-1.5 px-1 rounded font-bold text-[11px] shadow hover:bg-gray-50">
-            <Eye className="w-3 h-3 text-[#d87532]" /> View
-          </Link>
+          <span className="flex-1 flex items-center justify-center gap-1 bg-[#BD5E22] text-white py-1.5 px-1 rounded font-bold text-[11px] shadow hover:bg-[#a5521e] transition-colors">
+            <Eye className="w-3 h-3 text-white" /> View
+          </span>
         </div>
       </div>
 
       <div className="p-3 flex-1 flex flex-col justify-between">
         <div>
-          <span className="text-[10px] text-[#d87532] font-semibold uppercase tracking-wider">{product.categories?.[0]}</span>
+          <span className="text-[10px] text-[#BD5E22] font-semibold uppercase tracking-wider">{product.categories?.[0]}</span>
           <h3 className="font-bold text-gray-800 text-sm mt-0.5 line-clamp-1">{product.title}</h3>
         </div>
 
@@ -110,28 +121,44 @@ export default function ProductCard({ product }) {
           {!isQuoteOnly && <div className="flex items-center gap-1.5 mb-2">
             {hasOffer ? (
               <>
-                <span className="text-base font-black text-[#d87532]">{currency}{pricing.offerPrice.toFixed(2)}</span>
+                <span className="text-base font-black text-[#BD5E22]">{currency}{pricing.offerPrice.toFixed(2)}</span>
                 <span className="text-xs text-gray-400 line-through">{currency}{pricing.price.toFixed(2)}</span>
               </>
             ) : (
               <span className="text-base font-extrabold text-gray-900">{currency}{pricing.price.toFixed(2)}</span>
             )}
           </div>}
+          
           {priceAvailable && !product.fitments?.length && (
             <button
-              onClick={() => addToCart({ ...product, price: pricing.displayPrice })}
-              className="min-h-9 w-full flex items-center justify-center gap-1.5 bg-[#c45724] text-white px-3 rounded-md text-xs font-bold hover:bg-[#a9431a] transition-colors shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c45724]"
+              onClick={(e) => {
+                e.stopPropagation(); // Prevents the card click when adding to cart
+                addToCart({ ...product, price: pricing.displayPrice });
+              }}
+              className="min-h-9 w-full flex items-center justify-center gap-1.5 bg-[#BD5E22] text-white px-3 rounded-md text-xs font-bold hover:bg-[#a5521e] transition-colors shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BD5E22]"
             >
               <ShoppingCart className="w-4 h-4 shrink-0" /> <span>Add to Cart</span>
             </button>
           )}
+
           {priceAvailable && product.fitments?.length > 0 && (
-            <Link href={`/products/${product.slug || product._id}`} className="min-h-9 w-full flex items-center justify-center gap-1.5 bg-[#c45724] text-white px-3 rounded-md text-xs font-bold hover:bg-[#a9431a] transition-colors shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c45724]">
+            <Link 
+              href={`/product/${product.slug || product._id}`} 
+              onClick={(e) => e.stopPropagation()} 
+              className="min-h-9 w-full flex items-center justify-center gap-1.5 bg-[#BD5E22] text-white px-3 rounded-md text-xs font-bold hover:bg-[#a5521e] transition-colors shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BD5E22]"
+            >
               <Eye className="w-4 h-4 shrink-0" /> <span>Choose part</span>
             </Link>
           )}
+
           {(product.hasInquiry || !priceAvailable) && (
-            <button onClick={() => window.open(`https://wa.me/${product.whatsappNumber || '1234567890'}?text=${encodeURIComponent(`Please quote ${product.title} (${product.sku})`)}`, '_blank')} className="min-h-9 w-full flex items-center justify-center gap-1.5 border border-emerald-700 bg-white text-emerald-800 px-3 rounded-md text-xs font-bold hover:bg-emerald-50 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700">
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                window.open(`https://wa.me/${product.whatsappNumber || '1234567890'}?text=${encodeURIComponent(`Please quote ${product.title} (${product.sku})`)}`, '_blank');
+              }} 
+              className="min-h-9 w-full flex items-center justify-center gap-1.5 border border-[#BD5E22] bg-white text-[#BD5E22] px-3 rounded-md text-xs font-bold hover:bg-[#fcf5f1] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BD5E22]"
+            >
               <MessageCircle className="w-4 h-4 shrink-0" /> <span>Enquiry</span>
             </button>
           )}

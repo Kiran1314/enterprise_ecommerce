@@ -21,8 +21,8 @@ export async function GET() {
         settings = await Settings.findByIdAndUpdate(settings._id, { $set: updates }, { new: true });
       }
     }
-    const { currencySymbol, currencyCode, companyName, companyEmail, companyPhone, companyAddress, taxId } = settings;
-    return NextResponse.json({ success: true, data: { currencySymbol, currencyCode, companyName, companyEmail, companyPhone, companyAddress, taxId } }, { status: 200 });
+    const { currencySymbol, currencyCode, companyName, companyEmail, companyPhone, companyAddress, taxId, categorySortMode } = settings;
+    return NextResponse.json({ success: true, data: { currencySymbol, currencyCode, companyName, companyEmail, companyPhone, companyAddress, taxId, categorySortMode: categorySortMode || 'recent' } }, { status: 200 });
   } catch (error) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
@@ -34,7 +34,7 @@ export async function PUT(request) {
     if (!admin) return NextResponse.json({ success: false, error: 'Admin sign-in required.' }, { status: 401 });
     await dbConnect();
     const body = await request.json();
-    const allowedFields = ['currencySymbol', 'currencyCode', 'companyName', 'companyEmail', 'companyPhone', 'companyAddress', 'taxId'];
+    const allowedFields = ['currencySymbol', 'currencyCode', 'companyName', 'companyEmail', 'companyPhone', 'companyAddress', 'taxId', 'categorySortMode'];
     const updates = Object.fromEntries(allowedFields.filter(field => body[field] !== undefined).map(field => [field, body[field]]));
     let settings = await Settings.findOne({});
     if (!settings) {

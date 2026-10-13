@@ -47,12 +47,19 @@ export async function PUT(request, { params }) {
     };
 
     body.attributes = cleanAttributes(body.attributes);
+    if (Array.isArray(body.images)) body.images = [...new Set(body.images.map(v => String(v).trim()).filter(Boolean))];
+    if (body.images?.length) body.icon = body.images[0];
+    if (body.sortOrder === '' || body.sortOrder === undefined || body.sortOrder === null) body.sortOrder = null;
+    else body.sortOrder = Number(body.sortOrder);
 
     if (body.subcategories && Array.isArray(body.subcategories)) {
       body.subcategories = body.subcategories.map(sub => {
         const subCopy = { ...sub };
         delete subCopy._id;
         subCopy.attributes = cleanAttributes(subCopy.attributes);
+        if (!Array.isArray(subCopy.images)) subCopy.images = subCopy.icon ? [subCopy.icon] : [];
+        subCopy.images = [...new Set(subCopy.images.map(v => String(v).trim()).filter(Boolean))];
+        if (subCopy.images.length) subCopy.icon = subCopy.images[0];
         return subCopy;
       });
     }
@@ -66,6 +73,9 @@ export async function PUT(request, { params }) {
     category.name = body.name;
     category.slug = body.slug;
     category.icon = body.icon;
+    category.images = body.images || (body.icon ? [body.icon] : []);
+    category.sortOrder = body.sortOrder ?? null;
+    category.isFeatured = body.isFeatured ?? category.isFeatured;
     category.description = body.description;
     category.attributes = body.attributes;
     category.subcategories = body.subcategories;

@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { Providers } from '@/components/Providers';
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v16-appRouter';
 import './globals.css';
@@ -13,7 +14,9 @@ export default function RootLayout({ children }) {
       <body>
         <AppRouterCacheProvider>
           <Providers>
-            {children}
+            <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center' }}>Loading application...</div>}>
+              {children}
+            </Suspense>
           </Providers>
         </AppRouterCacheProvider>
       </body>

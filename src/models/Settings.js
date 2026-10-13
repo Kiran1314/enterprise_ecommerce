@@ -8,6 +8,7 @@ const SettingsSchema = new mongoose.Schema({
   companyPhone: { type: String, default: '+971 549912098' },
   companyAddress: { type: String, default: '21C Street, G Floor, 29733 96054, Naif, Deira, Dubai, Dubai Municipality, Show Entrance, UAE' },
   taxId: { type: String, default: '' },
+  categorySortMode: { type: String, enum: ['recent', 'alphabetical', 'custom'], default: 'recent' },
   paymentSettings: {
     gateway: { type: String, default: 'auto' },
     region: { type: String, default: 'UAE' },

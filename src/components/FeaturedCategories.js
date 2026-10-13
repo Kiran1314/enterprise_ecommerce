@@ -1,126 +1,188 @@
-import React, { useState, useEffect } from 'react';
+'use client';
+
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 
-const FeaturedCategories = () => {
-  const [allCategories, setAllCategories] = useState([]);
-  const [displayedCategories, setDisplayedCategories] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [page, setPage] = useState(1);
+const imageList = category => {
+  const images = Array.isArray(category.images) ? category.images : [];
+  return [...new Set([...images, category.icon].filter(Boolean))];
+};
+
+export default function FeaturedCategories() {
+  const [categories, setCategories] = useState([]);
+  const [sortMode, setSortMode] = useState('recent');
+  const [visibleCount, setVisibleCount] = useState(8);
   const [loading, setLoading] = useState(true);
-  const limit = 8;
+  const [hoveredCategory, setHoveredCategory] = useState(null);
+  const [activeImages, setActiveImages] = useState({});
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const response = await fetch('/api/categories');
-        const result = await response.json();
-        
-        if (result.success) {
-          // Prioritize featured categories, fallback to all if none are featured
-          const featured = result.data.filter(cat => cat.isFeatured);
-          const categoriesToUse = featured.length > 0 ? featured : result.data;
-          setAllCategories(categoriesToUse);
-        }
-      } catch (error) {
-        console.error('Error fetching categories:', error);
-      } finally {
-        setLoading(false);
+    Promise.all([
+      fetch('/api/categories').then(response => response.json()),
+      fetch('/api/settings').then(response => response.json()).catch(() => null)
+    ]).then(([categoryResult, settingsResult]) => {
+      if (categoryResult?.success) {
+        const featured = categoryResult.data.filter(category => category.isFeatured);
+        setCategories(featured.length ? featured : categoryResult.data);
       }
-    };
-    fetchCategories();
+      if (settingsResult?.success) setSortMode(settingsResult.data?.categorySortMode || 'recent');
+    }).catch(error => console.error('Error fetching featured categories:', error))
+      .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => {
-    // Handle Search and Pagination locally
-    const filtered = allCategories.filter(cat => 
-      cat.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const sortedCategories = useMemo(() => {
+    const filtered = categories.filter(category =>
+      category.name?.toLowerCase().includes(searchQuery.toLowerCase())
     );
-    setDisplayedCategories(filtered.slice(0, page * limit));
-  }, [allCategories, searchQuery, page]);
+    if (sortMode === 'alphabetical') {
+      return filtered.sort((a, b) => a.name.localeCompare(b.name));
+    }
+    if (sortMode === 'custom') {
+      const hasCustomOrder = filtered.some(category => category.sortOrder !== null && category.sortOrder !== undefined && category.sortOrder !== '');
+      if (hasCustomOrder) {
+        return filtered.sort((a, b) => {
+          const aOrder = Number.isFinite(Number(a.sortOrder)) && a.sortOrder !== null && a.sortOrder !== '' ? Number(a.sortOrder) : Number.MAX_SAFE_INTEGER;
+          const bOrder = Number.isFinite(Number(b.sortOrder)) && b.sortOrder !== null && b.sortOrder !== '' ? Number(b.sortOrder) : Number.MAX_SAFE_INTEGER;
+          return aOrder - bOrder || new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+        });
+      }
+    }
+    return filtered.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  }, [categories, searchQuery, sortMode]);
 
-  const hasMore = displayedCategories.length < allCategories.filter(cat => cat.name.toLowerCase().includes(searchQuery.toLowerCase())).length;
+  const onCardHover = category => {
+    setHoveredCategory(category._id);
+    const images = imageList(category);
+    if (images.length > 1) {
+      const current = activeImages[category._id] ?? 0;
+      let next = Math.floor(Math.random() * images.length);
+      if (images.length > 1 && next === current) next = (next + 1 + Math.floor(Math.random() * (images.length - 1))) % images.length;
+      setActiveImages(previous => ({ ...previous, [category._id]: next }));
+    }
+  };
+
+  const shownCategories = sortedCategories.slice(0, visibleCount);
+  const hasMore = visibleCount < sortedCategories.length;
 
   return (
-    <section className="py-12 bg-gray-50" id="featured-categories">
-      <div className="container mx-auto px-4">
-        <div className="flex flex-col md:flex-row justify-between items-center mb-8">
-          <h2 className="text-2xl font-bold text-gray-800">Featured Categories</h2>
-          
-          <div className="relative mt-4 md:mt-0 w-full md:w-72">
-            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-               <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-            </div>
-            <input
-              type="text"
-              className="block w-full p-3 pl-10 text-sm text-gray-900 border border-gray-300 rounded-lg shadow-sm focus:ring-[#BD5E22] focus:border-[#BD5E22]"
-              placeholder="Search categories..."
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setPage(1);
-              }}
-            />
+    <section className="featured-categories-section" id="featured-categories">
+      <div className="featured-categories-container">
+        <div className="featured-categories-heading">
+          <div>
+            <p className="featured-eyebrow">SHOP BY COLLECTION</p>
+            <h2>Featured Categories</h2>
           </div>
+          <input
+            type="search"
+            className="featured-category-search"
+            placeholder="Search categories..."
+            value={searchQuery}
+            onChange={event => { setSearchQuery(event.target.value); setVisibleCount(8); }}
+            aria-label="Search categories"
+          />
         </div>
 
-        {loading ? (
-          <div className="text-center py-10 text-gray-500">Loading categories...</div>
-        ) : displayedCategories.length === 0 ? (
-          <div className="text-center py-10 text-gray-500">No categories found.</div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {displayedCategories.map((category, index) => (
-              <div 
-                key={category._id} 
-                className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-500 ease-out transform hover:-translate-y-1 flex flex-col animate-fade-in"
-                style={{ animationDelay: `${index * 50}ms` }}
-              >
-                <div className="p-6 flex flex-col items-center justify-center text-center flex-grow">
-                  <img 
-                    src={category.icon || '/assets/images/default-icon.png'} 
-                    alt={category.name} 
-                    className="w-40 h-40 mb-6 object-contain"
-                  />
-                  <h3 className="text-lg font-semibold text-gray-800 mb-2">{category.name}</h3>
-                   
-                </div>
-                <div className="p-4 border-t border-gray-100 mt-auto">
-                  <Link 
-                    href={`/categories/${category.slug}`}
-                    className="block w-full text-center py-2 px-4 bg-[#BD5E22] hover:bg-[#924414] text-white rounded-lg font-medium transition-colors"
+        {loading ? <p className="featured-category-message">Loading categories...</p> :
+          shownCategories.length === 0 ? <p className="featured-category-message">No categories found.</p> : (
+            <div className="featured-category-grid">
+              {shownCategories.map(category => {
+                const images = imageList(category);
+                const currentIndex = Math.min(activeImages[category._id] ?? 0, Math.max(0, images.length - 1));
+                const currentImage = images[currentIndex] || '/assets/images/default-icon.png';
+                return (
+                  <article
+                    key={category._id}
+                    className={`featured-category-card ${hoveredCategory === category._id ? 'is-flipped' : ''}`}
+                    onMouseEnter={() => onCardHover(category)}
+                    onMouseLeave={() => setHoveredCategory(null)}
+                    onFocus={() => onCardHover(category)}
+                    onBlur={() => setHoveredCategory(null)}
                   >
-                    Explore Products
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+                    <div className="featured-card-scene">
+                      <div className="featured-card-rotator">
+                        <div className="featured-card-face featured-card-front">
+                          <div className="featured-card-image-wrap">
+                            <img src={images[0] || currentImage} alt={category.name} loading="lazy" />
+                          </div>
+                          <h3>{category.name}</h3>
+                          <p>{category.description || 'Explore our available parts'}</p>
+                          <Link href={`/categories/${category.slug}`} className="featured-explore-link">Explore Products <span aria-hidden="true">↗</span></Link>
+                        </div>
+                        <div className="featured-card-face featured-card-back" aria-hidden="true">
+                          <div className="featured-card-image-wrap">
+                            <img src={currentImage} alt="" loading="lazy" />
+                          </div>
+                          <h3>{category.name}</h3>
+                          <p>{images.length > 1 ? `Image ${currentIndex + 1} of ${images.length}` : 'Explore this collection'}</p>
+                          <Link tabIndex={-1} href={`/categories/${category.slug}`} className="featured-explore-link">Explore Products <span aria-hidden="true">↗</span></Link>
+                        </div>
+                      </div>
+                    </div>
+                    {images.length > 1 && (
+                      <div className="featured-image-dots" aria-label={`${images.length} category images`}>
+                        {images.map((image, index) => (
+                          <button
+                            type="button"
+                            key={`${image}-${index}`}
+                            aria-label={`Show category image ${index + 1}`}
+                            aria-current={currentIndex === index ? 'true' : undefined}
+                            className={currentIndex === index ? 'active' : ''}
+                            onMouseEnter={() => setActiveImages(previous => ({ ...previous, [category._id]: index }))}
+                            onClick={() => setActiveImages(previous => ({ ...previous, [category._id]: index }))}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          )}
 
         {hasMore && !loading && (
-          <div className="flex justify-center mt-10">
-            <button 
-              onClick={() => setPage(prev => prev + 1)}
-              className="px-8 py-3 bg-[#BD5E22] text-white rounded-full font-medium hover:bg-[#BD5E22] transition-colors shadow-md"
-            >
-              Load More Categories
+          <div className="featured-load-more-wrap">
+            <button type="button" className="featured-load-more" onClick={() => setVisibleCount(count => count + 8)}>
+              Load More Categories <span aria-hidden="true">↓</span>
             </button>
           </div>
         )}
       </div>
 
-      <style dangerouslySetInnerHTML={{__html: `
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in {
-          animation: fadeIn 0.5s ease-out forwards;
-          opacity: 0;
-        }
-      `}} />
+      <style jsx>{`
+        .featured-categories-section { padding: clamp(42px, 6vw, 76px) 0; background: #f5f6f7; overflow: hidden; }
+        .featured-categories-container { width: min(1320px, calc(100% - 36px)); margin: 0 auto; }
+        .featured-categories-heading { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 30px; }
+        .featured-eyebrow { margin: 0 0 6px; color: #bd5e22; font-size: 11px; letter-spacing: .18em; font-weight: 800; }
+        .featured-categories-heading h2 { margin: 0; color: #20252a; font-size: clamp(24px, 3vw, 34px); line-height: 1.15; font-weight: 850; }
+        .featured-category-search { width: min(300px, 100%); border: 1px solid #d9dde1; background: white; border-radius: 10px; padding: 12px 14px; outline: none; }
+        .featured-category-search:focus { border-color: #bd5e22; box-shadow: 0 0 0 3px #bd5e2220; }
+        .featured-category-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px 20px; perspective: 1400px; }
+        .featured-category-card { min-width: 0; }
+        .featured-card-scene { height: 340px; perspective: 1200px; }
+        .featured-card-rotator { height: 100%; width: 100%; position: relative; transform-style: preserve-3d; transition: transform .72s cubic-bezier(.2,.75,.25,1); }
+        .featured-category-card.is-flipped .featured-card-rotator { transform: rotateY(180deg); }
+        .featured-card-face { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; padding: 18px 16px 16px; border: 1px solid #e6e8eb; border-radius: 16px; background: linear-gradient(145deg,#fff,#fafafa); box-shadow: 0 8px 22px #17212b0b; backface-visibility: hidden; -webkit-backface-visibility: hidden; text-align: center; overflow: hidden; }
+        .featured-card-back { transform: rotateY(180deg); background: linear-gradient(145deg,#fff,#f4f5f6); }
+        .featured-card-image-wrap { width: 100%; height: 184px; display: flex; align-items: center; justify-content: center; padding: 6px; }
+        .featured-card-image-wrap img { width: 100%; height: 100%; object-fit: contain; transition: transform .4s ease; }
+        .featured-category-card:hover .featured-card-image-wrap img { transform: scale(1.045); }
+        .featured-card-face h3 { margin: 10px 0 4px; color: #20252a; font-size: 16px; line-height: 1.3; font-weight: 800; }
+        .featured-card-face p { margin: 0 0 12px; color: #6b7280; font-size: 12px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .featured-explore-link { margin-top: auto; display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; border-radius: 8px; padding: 10px 12px; background: #bd5e22; color: #fff; font-size: 13px; font-weight: 750; text-decoration: none; transition: background .2s, transform .2s; }
+        .featured-explore-link:hover { background: #924414; transform: translateY(-1px); }
+        .featured-image-dots { display: flex; justify-content: center; align-items: center; gap: 6px; padding-top: 11px; min-height: 25px; }
+        .featured-image-dots button { border: 0; width: 6px; height: 6px; padding: 0; border-radius: 99px; background: #c5c9ce; cursor: pointer; transition: all .2s ease; }
+        .featured-image-dots button.active { width: 19px; background: #bd5e22; }
+        .featured-load-more-wrap { display: flex; justify-content: center; margin-top: 34px; }
+        .featured-load-more { border: 1px solid #bd5e22; background: transparent; color: #9e4b18; border-radius: 999px; padding: 12px 24px; font-weight: 800; cursor: pointer; transition: all .2s; }
+        .featured-load-more:hover { color: white; background: #bd5e22; box-shadow: 0 8px 20px #bd5e2228; }
+        .featured-category-message { text-align: center; padding: 42px 0; color: #6b7280; }
+        @media (max-width: 1000px) { .featured-category-grid { grid-template-columns: repeat(3,minmax(0,1fr)); } }
+        @media (max-width: 700px) { .featured-categories-heading { align-items: stretch; flex-direction: column; } .featured-category-search { width: 100%; } .featured-category-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px 12px; } .featured-card-scene { height: 315px; } .featured-card-face { padding: 12px 10px; } .featured-card-image-wrap { height: 155px; } .featured-card-face h3 { font-size: 14px; } }
+        @media (max-width: 380px) { .featured-categories-container { width: calc(100% - 24px); } .featured-card-scene { height: 290px; } .featured-card-image-wrap { height: 130px; } }
+        @media (prefers-reduced-motion: reduce) { .featured-card-rotator, .featured-card-image-wrap img { transition: none; } }
+      `}</style>
     </section>
   );
-};
-
-export default FeaturedCategories;
+}

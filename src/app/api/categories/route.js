@@ -28,6 +28,10 @@ export async function POST(request) {
       }));
     }
 
+    if (Array.isArray(body.images)) body.images = [...new Set(body.images.map(v => String(v).trim()).filter(Boolean))];
+    if (body.images?.length) body.icon = body.images[0];
+    if (body.sortOrder === '' || body.sortOrder === undefined || body.sortOrder === null) body.sortOrder = null;
+    else body.sortOrder = Number(body.sortOrder);
     const category = await Category.create(body);
     await recordActivity({ actor: admin, actorType: 'Admin', action: 'created', entityType: 'Category', entityId: category._id, description: `${admin.name} added category ${category.name}.` });
     return NextResponse.json({ success: true, data: category }, { status: 201 });

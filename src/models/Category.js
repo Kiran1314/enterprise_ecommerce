@@ -9,6 +9,7 @@ const SubCategorySchema = new mongoose.Schema({
   name: { type: String, required: true },
   slug: { type: String, required: true },
   icon: { type: String },
+  images: { type: [String], default: [] },
   description: { type: String },
   attributes: [AttributeSchema]
 });
@@ -17,6 +18,8 @@ const CategorySchema = new mongoose.Schema({
   name: { type: String, required: true, unique: true },
   slug: { type: String, required: true, unique: true },
   icon: { type: String },
+  images: { type: [String], default: [] },
+  sortOrder: { type: Number, default: null },
   description: { type: String },
   isFeatured: { type: Boolean, default: false }, // Added to support the featured categories fetch
   attributes: [AttributeSchema],
