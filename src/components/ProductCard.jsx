@@ -51,7 +51,7 @@ export default function ProductCard({ product }) {
 
   return (
     <div className="bg-white rounded-md overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 flex flex-col relative group border border-gray-100">
-      <div className="absolute top-2 left-2 z-20 flex flex-col gap-1 items-start">
+      <div className="absolute top-2 left-2 z-20 flex flex-col gap-1 items-start pointer-events-none">
         {product.customTags?.map((tag, idx) => (
           <span key={idx} style={{ backgroundColor: tag.bgColor || '#d87532' }} className="text-white text-[10px] px-1.5 py-0.5 rounded font-black shadow-sm">
             {tag.label}
@@ -64,7 +64,7 @@ export default function ProductCard({ product }) {
         )}
       </div>
 
-      <div className="relative aspect-square bg-gray-50 overflow-hidden">
+      <Link href={`/products/${product.slug || product._id}`} className="relative aspect-square bg-gray-50 overflow-hidden block">
         <img src={displayImages[selectedImageIdx] || displayImages[0]} alt={product.title} className="object-cover w-full h-full group-hover:scale-105 transition duration-300" />
         
         {/* Fade-in Up Available Sizes on Card Hover */}
@@ -82,16 +82,18 @@ export default function ProductCard({ product }) {
         )}
 
         <div className="absolute inset-x-0 bottom-0 p-2 bg-linear-to-t from-black/60 to-transparent translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-in-out flex gap-1.5 z-10">
-          <Link href={`/products/${product.slug || product._id}`} className="flex-1 flex items-center justify-center gap-1 bg-white text-gray-900 py-1.5 px-1 rounded font-bold text-[11px] shadow hover:bg-gray-50">
+          <div className="flex-1 flex items-center justify-center gap-1 bg-white text-gray-900 py-1.5 px-1 rounded font-bold text-[11px] shadow hover:bg-gray-50">
             <Eye className="w-3 h-3 text-[#d87532]" /> View
-          </Link>
+          </div>
         </div>
-      </div>
+      </Link>
 
       <div className="p-3 flex-1 flex flex-col justify-between">
         <div>
           <span className="text-[10px] text-[#d87532] font-semibold uppercase tracking-wider">{product.categories?.[0]}</span>
-          <h3 className="font-bold text-gray-800 text-sm mt-0.5 line-clamp-1">{product.title}</h3>
+          <Link href={`/products/${product.slug || product._id}`}>
+            <h3 className="font-bold text-gray-800 text-sm mt-0.5 line-clamp-1 hover:text-[#d87532] transition-colors">{product.title}</h3>
+          </Link>
         </div>
 
         {/* Low Stock Warning Message */}
@@ -119,7 +121,7 @@ export default function ProductCard({ product }) {
           </div>}
           {priceAvailable && !product.fitments?.length && (
             <button
-              onClick={() => addToCart({ ...product, price: pricing.displayPrice })}
+              onClick={(e) => { e.preventDefault(); addToCart({ ...product, price: pricing.displayPrice }); }}
               className="min-h-9 w-full flex items-center justify-center gap-1.5 bg-[#c45724] text-white px-3 rounded-md text-xs font-bold hover:bg-[#a9431a] transition-colors shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c45724]"
             >
               <ShoppingCart className="w-4 h-4 shrink-0" /> <span>Add to Cart</span>
@@ -131,7 +133,7 @@ export default function ProductCard({ product }) {
             </Link>
           )}
           {(product.hasInquiry || !priceAvailable) && (
-            <button onClick={() => window.open(`https://wa.me/${product.whatsappNumber || '1234567890'}?text=${encodeURIComponent(`Please quote ${product.title} (${product.sku})`)}`, '_blank')} className="min-h-9 w-full flex items-center justify-center gap-1.5 border border-emerald-700 bg-white text-emerald-800 px-3 rounded-md text-xs font-bold hover:bg-emerald-50 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700">
+            <button onClick={(e) => { e.preventDefault(); window.open(`https://wa.me/${product.whatsappNumber || '1234567890'}?text=${encodeURIComponent(`Please quote ${product.title} (${product.sku})`)}`, '_blank'); }} className="min-h-9 w-full flex items-center justify-center gap-1.5 border border-emerald-700 bg-white text-emerald-800 px-3 rounded-md text-xs font-bold hover:bg-emerald-50 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700">
               <MessageCircle className="w-4 h-4 shrink-0" /> <span>Enquiry</span>
             </button>
           )}

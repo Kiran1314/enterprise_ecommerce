@@ -101,22 +101,32 @@ export default function FeaturedCategories() {
                   >
                     <div className="featured-card-scene">
                       <div className="featured-card-rotator">
+                        
+                        {/* Front Face */}
                         <div className="featured-card-face featured-card-front">
-                          <div className="featured-card-image-wrap">
+                          <Link href={`/categories/${category.slug}`} tabIndex={-1} className="featured-card-image-wrap">
                             <img src={images[0] || currentImage} alt={category.name} loading="lazy" />
-                          </div>
+                          </Link>
                           <h3>{category.name}</h3>
-                          <p>{category.description || 'Explore our available parts'}</p>
-                          <Link href={`/categories/${category.slug}`} className="featured-explore-link">Explore Products <span aria-hidden="true">↗</span></Link>
+                          {/* Hide description on front to ensure title + button fits perfectly */}
+                          <div className="spacer"></div> 
+                          <Link href={`/categories/${category.slug}`} className="featured-explore-link front-link">
+                            Explore Products <span aria-hidden="true">↗</span>
+                          </Link>
                         </div>
+
+                        {/* Back Face (Visible on Hover/Flip) */}
                         <div className="featured-card-face featured-card-back" aria-hidden="true">
-                          <div className="featured-card-image-wrap">
+                          <Link href={`/categories/${category.slug}`} tabIndex={-1} className="featured-card-image-wrap">
                             <img src={currentImage} alt="" loading="lazy" />
-                          </div>
+                          </Link>
                           <h3>{category.name}</h3>
-                          <p>{images.length > 1 ? `Image ${currentIndex + 1} of ${images.length}` : 'Explore this collection'}</p>
-                          <Link tabIndex={-1} href={`/categories/${category.slug}`} className="featured-explore-link">Explore Products <span aria-hidden="true">↗</span></Link>
+                          <p className="card-description">{category.description || 'Explore our available parts'}</p>
+                          <Link tabIndex={-1} href={`/categories/${category.slug}`} className="featured-explore-link back-link">
+                            Explore Products <span aria-hidden="true">↗</span>
+                          </Link>
                         </div>
+                        
                       </div>
                     </div>
                     {images.length > 1 && (
@@ -158,29 +168,49 @@ export default function FeaturedCategories() {
         .featured-category-search { width: min(300px, 100%); border: 1px solid #d9dde1; background: white; border-radius: 10px; padding: 12px 14px; outline: none; }
         .featured-category-search:focus { border-color: #bd5e22; box-shadow: 0 0 0 3px #bd5e2220; }
         .featured-category-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px 20px; perspective: 1400px; }
-        .featured-category-card { min-width: 0; }
-        .featured-card-scene { height: 340px; perspective: 1200px; }
+        .featured-category-card { min-width: 0; cursor: pointer; }
+        
+        /* INCREASED HEIGHT so titles and buttons don't get cut off */
+        .featured-card-scene { height: 380px; perspective: 1200px; }
         .featured-card-rotator { height: 100%; width: 100%; position: relative; transform-style: preserve-3d; transition: transform .72s cubic-bezier(.2,.75,.25,1); }
         .featured-category-card.is-flipped .featured-card-rotator { transform: rotateY(180deg); }
-        .featured-card-face { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; padding: 18px 16px 16px; border: 1px solid #e6e8eb; border-radius: 16px; background: linear-gradient(145deg,#fff,#fafafa); box-shadow: 0 8px 22px #17212b0b; backface-visibility: hidden; -webkit-backface-visibility: hidden; text-align: center; overflow: hidden; }
+        
+        .featured-card-face { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; padding: 20px 16px 18px; border: 1px solid #e6e8eb; border-radius: 16px; background: linear-gradient(145deg,#fff,#fafafa); box-shadow: 0 8px 22px #17212b0b; backface-visibility: hidden; -webkit-backface-visibility: hidden; text-align: center; overflow: hidden; }
         .featured-card-back { transform: rotateY(180deg); background: linear-gradient(145deg,#fff,#f4f5f6); }
-        .featured-card-image-wrap { width: 100%; height: 184px; display: flex; align-items: center; justify-content: center; padding: 6px; }
-        .featured-card-image-wrap img { width: 100%; height: 100%; object-fit: contain; transition: transform .4s ease; }
+        
+        .featured-card-image-wrap { width: 100%; height: 190px; display: flex; align-items: center; justify-content: center; padding: 16px; outline: none; }
+        .featured-card-image-wrap img { width: 100%; height: 100%; object-fit: contain; transition: transform .4s ease; mix-blend-mode: multiply; }
         .featured-category-card:hover .featured-card-image-wrap img { transform: scale(1.045); }
-        .featured-card-face h3 { margin: 10px 0 4px; color: #20252a; font-size: 16px; line-height: 1.3; font-weight: 800; }
-        .featured-card-face p { margin: 0 0 12px; color: #6b7280; font-size: 12px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-        .featured-explore-link { margin-top: auto; display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; border-radius: 8px; padding: 10px 12px; background: #bd5e22; color: #fff; font-size: 13px; font-weight: 750; text-decoration: none; transition: background .2s, transform .2s; }
+        
+        /* Spacer pushes the button to the bottom if there is no description */
+        .spacer { flex-grow: 1; }
+        
+        .featured-card-face h3 { margin: 8px 0; color: #20252a; font-size: 16px; line-height: 1.35; font-weight: 800; width: 100%; word-wrap: break-word; overflow-wrap: break-word; hyphens: auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .card-description { margin: 0 0 12px; color: #6b7280; font-size: 12px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; flex-grow: 1; }
+        
+        /* Base button styles */
+        .featured-explore-link { margin-top: auto; display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; border-radius: 8px; padding: 12px; background: #bd5e22; color: #fff; font-size: 13px; font-weight: 750; text-decoration: none; transition: background .2s, transform .2s, opacity .3s ease; flex-shrink: 0; }
         .featured-explore-link:hover { background: #924414; transform: translateY(-1px); }
-        .featured-image-dots { display: flex; justify-content: center; align-items: center; gap: 6px; padding-top: 11px; min-height: 25px; }
+        
+        /* Front link fades OUT on hover */
+        .front-link { opacity: 1; }
+        .featured-category-card.is-flipped .front-link { opacity: 0; pointer-events: none; }
+        
+        /* Back link fades IN on hover */
+        .back-link { opacity: 0; transform: translateY(10px); transition: opacity 0.4s ease, transform 0.4s ease, background 0.2s; }
+        .featured-category-card.is-flipped .back-link { opacity: 1; transform: translateY(0); transition-delay: 0.15s; }
+        
+        .featured-image-dots { display: flex; justify-content: center; align-items: center; gap: 6px; padding-top: 14px; min-height: 25px; }
         .featured-image-dots button { border: 0; width: 6px; height: 6px; padding: 0; border-radius: 99px; background: #c5c9ce; cursor: pointer; transition: all .2s ease; }
         .featured-image-dots button.active { width: 19px; background: #bd5e22; }
         .featured-load-more-wrap { display: flex; justify-content: center; margin-top: 34px; }
         .featured-load-more { border: 1px solid #bd5e22; background: transparent; color: #9e4b18; border-radius: 999px; padding: 12px 24px; font-weight: 800; cursor: pointer; transition: all .2s; }
         .featured-load-more:hover { color: white; background: #bd5e22; box-shadow: 0 8px 20px #bd5e2228; }
         .featured-category-message { text-align: center; padding: 42px 0; color: #6b7280; }
+        
         @media (max-width: 1000px) { .featured-category-grid { grid-template-columns: repeat(3,minmax(0,1fr)); } }
-        @media (max-width: 700px) { .featured-categories-heading { align-items: stretch; flex-direction: column; } .featured-category-search { width: 100%; } .featured-category-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px 12px; } .featured-card-scene { height: 315px; } .featured-card-face { padding: 12px 10px; } .featured-card-image-wrap { height: 155px; } .featured-card-face h3 { font-size: 14px; } }
-        @media (max-width: 380px) { .featured-categories-container { width: calc(100% - 24px); } .featured-card-scene { height: 290px; } .featured-card-image-wrap { height: 130px; } }
+        @media (max-width: 700px) { .featured-categories-heading { align-items: stretch; flex-direction: column; } .featured-category-search { width: 100%; } .featured-category-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px 12px; } .featured-card-scene { height: 350px; } .featured-card-face { padding: 12px 10px; } .featured-card-image-wrap { height: 160px; padding: 12px; } .featured-card-face h3 { font-size: 14px; } }
+        @media (max-width: 380px) { .featured-categories-container { width: calc(100% - 24px); } .featured-card-scene { height: 330px; } .featured-card-image-wrap { height: 140px; } }
         @media (prefers-reduced-motion: reduce) { .featured-card-rotator, .featured-card-image-wrap img { transition: none; } }
       `}</style>
     </section>

@@ -9,7 +9,7 @@ import { ChevronLeft, ChevronRight, KeyboardArrowDown, Settings } from '@mui/ico
 import Link from 'next/link';
 import Header from '@/components/Header';
 
-// Dynamic Imports for Code Splitting[cite: 3]
+// Dynamic Imports for Code Splitting
 const ProductCard = dynamic(() => import('@/components/ProductCard'), { 
   ssr: false, 
   loading: () => <Box sx={{ height: 320, bgcolor: '#f8fafc', borderRadius: 2 }} /> 
@@ -27,7 +27,7 @@ const sampleReviews = [
   { authorName: 'Saeed Al Ketbi', location: 'UAE', rating: 5, reviewText: 'The parcel arrived as scheduled and the item matched the product details.' }
 ];
 
-// Helper to randomize the product grid[cite: 3]
+// Helper to randomize the product grid
 const shuffleArray = (array) => {
   const newArr = [...array];
   for (let i = newArr.length - 1; i > 0; i--) {
@@ -92,7 +92,7 @@ export default function HomePage() {
       if (prodData.success) {
         const spareParts = prodData.data.filter(product => product.sku?.startsWith('SJ-'));
         const storefrontProducts = spareParts.length > 0 ? spareParts : prodData.data;
-        // Shuffle the products to mix random items on load[cite: 3]
+        // Shuffle the products to mix random items on load
         setProducts(shuffleArray(storefrontProducts));
         
         if (brandData.success) {

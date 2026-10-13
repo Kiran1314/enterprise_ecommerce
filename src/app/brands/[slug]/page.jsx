@@ -8,7 +8,7 @@ import {
 import { FilterList } from '@mui/icons-material';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import ProductCard from '@/components/ProductCard';
+import ProductCard from '@/components/ProductCard_old';
 
 export default function BrandProductsPage() {
   const { slug } = useParams();
