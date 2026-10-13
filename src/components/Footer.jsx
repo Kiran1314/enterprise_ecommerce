@@ -42,16 +42,14 @@ export default function Footer() {
             </Box>
           </Grid>
 
-           <Grid size={{ xs: 12, md: 4 }}>
+          {/* <Grid size={{ xs: 12, md: 4 }}>
             <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 2, color: 'var(--auto-yellow)' }}>Quick Links</Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
               <Link href="/" style={{ color: '#d1d5db', textDecoration: 'none', fontSize: '0.875rem' }}>Home</Link>
-              <Link href="/about" style={{ color: '#d1d5db', textDecoration: 'none', fontSize: '0.875rem' }}>About us</Link>
-              <Link href="/terms-and-conditions" style={{ color: '#d1d5db', textDecoration: 'none', fontSize: '0.875rem' }}>Terms & Condition</Link>
-              <Link href="/privacy-policy" style={{ color: '#d1d5db', textDecoration: 'none', fontSize: '0.875rem' }}>Privacy Policy</Link>
-
+              <Link href="/admin/products" style={{ color: '#d1d5db', textDecoration: 'none', fontSize: '0.875rem' }}>Admin Console</Link>
+              <Link href="/admin/settings" style={{ color: '#d1d5db', textDecoration: 'none', fontSize: '0.875rem' }}>Store Settings</Link>
             </Box>
-          </Grid>  
+          </Grid> */}
         </Grid>
 
         <Box sx={{ borderTop: '1px solid #2f3e46', mt: 4, pt: 3, textAlign: 'center' }}>
