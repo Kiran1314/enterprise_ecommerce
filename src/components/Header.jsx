@@ -1,15 +1,16 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
-  Box, Container, TextField, Button, InputAdornment, IconButton, Fade, Paper 
+  Box, Container, TextField, Button, InputAdornment, IconButton, Fade, Paper,
+  Autocomplete, Avatar, Chip, Typography
 } from '@mui/material';
 import { 
   Search, ContactSupport, Settings 
 } from '@mui/icons-material';
 
-export default function Header({ categories = [], searchQuery = '', setSearchQuery }) {
+export default function Header({ categories = [], brands = [], products = [], searchQuery = '', setSearchQuery }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
 
@@ -18,16 +19,44 @@ export default function Header({ categories = [], searchQuery = '', setSearchQue
     setMobileMenuOpen(false);
   }, [pathname]);
 
+  // Unified Search Logic: Combines Categories, Brands, and Products based on query
+  const searchOptions = useMemo(() => {
+    if (!searchQuery || !searchQuery.trim()) return [];
+    
+    const q = searchQuery.toLowerCase();
+    
+    const matchedCategories = categories
+      .filter(c => c.name?.toLowerCase().includes(q))
+      .map(c => ({ ...c, type: 'Category', label: c.name, id: c._id || c.name }));
+      
+    const matchedBrands = brands
+      .filter(b => b.name?.toLowerCase().includes(q))
+      .map(b => ({ ...b, type: 'Brand', label: b.name, id: b._id || b.name }));
+      
+    const matchedProducts = products
+      .filter(p => p.title?.toLowerCase().includes(q) || p.sku?.toLowerCase().includes(q) || p.model?.toLowerCase().includes(q))
+      .map(p => ({ 
+        ...p, 
+        type: 'Product', 
+        label: p.title, 
+        image: p.images?.[0] || p.image || null,
+        id: p._id || p.sku
+      }));
+      
+    // Combine and limit results to keep dropdown clean
+    return [...matchedCategories, ...matchedBrands, ...matchedProducts].slice(0, 15);
+  }, [searchQuery, categories, brands, products]);
+
   return (
     <Box component="header" sx={{ bgcolor: '#fff', borderBottom: '1px solid #e2e8f0', position: 'sticky', top: 0, zIndex: 1000 }}>
       {/* Main Top Navigation Bar */}
       <Container maxWidth="xl" sx={{ py: 1.5, position: 'relative' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
           
-          {/* Mobile Left Spacer (Keeps Logo Centered on Mobile) */}
+          {/* Mobile Left Spacer */}
           <Box sx={{ width: 40, display: { xs: 'block', md: 'none' } }} />
 
-          {/* Brand Logo (Centered on Mobile, Left-aligned on Desktop) */}
+          {/* Brand Logo */}
           <Box sx={{ 
             display: 'flex', 
             justifyContent: { xs: 'center', md: 'flex-start' }, 
@@ -48,16 +77,14 @@ export default function Header({ categories = [], searchQuery = '', setSearchQue
                 bgcolor: mobileMenuOpen ? '#252D3C' : '#f3e8ff',
                 transition: 'transform 0.3s ease, background-color 0.2s ease',
                 transform: mobileMenuOpen ? 'rotate(90deg)' : 'rotate(0deg)',
-                '&:hover': {
-                  bgcolor: mobileMenuOpen ? '#5200a3' : '#e9d5ff'
-                }
+                '&:hover': { bgcolor: mobileMenuOpen ? '#5200a3' : '#e9d5ff' }
               }}
             >
               <Settings />
             </IconButton>
           </Box>
 
-          {/* Search Input (Full width below logo on mobile, inline on desktop) */}
+          {/* Search Input Autocomplete */}
           {setSearchQuery && (
             <Box sx={{ 
               order: { xs: 3, md: 2 }, 
@@ -66,27 +93,73 @@ export default function Header({ categories = [], searchQuery = '', setSearchQue
               maxWidth: { xs: '100%', md: 520 },
               mt: { xs: 1, md: 0 }
             }}>
-              <TextField
-                fullWidth
-                size="small"
-                placeholder="Search spare parts by name, SKU, or model..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Search sx={{ color: '#64748b' }} />
-                      </InputAdornment>
-                    )
+              <Autocomplete
+                freeSolo
+                inputValue={searchQuery}
+                onInputChange={(event, newInputValue) => setSearchQuery(newInputValue)}
+                onChange={(event, newValue) => {
+                  // Allow user to click an option to apply it as the search filter
+                  if (typeof newValue === 'string') {
+                    setSearchQuery(newValue);
+                  } else if (newValue && newValue.label) {
+                    setSearchQuery(newValue.label);
                   }
                 }}
-                sx={{ bgcolor: '#f8fafc', borderRadius: 2 }}
+                options={searchOptions}
+                groupBy={(option) => option.type}
+                getOptionLabel={(option) => typeof option === 'string' ? option : option.label || ''}
+                renderOption={(props, option) => {
+                  const { key, ...optionProps } = props;
+                  return (
+                    <li key={key || option.id} {...optionProps} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 16px', cursor: 'pointer' }}>
+                      {option.image && (
+                        <Avatar 
+                          src={option.image} 
+                          alt={option.label} 
+                          variant="rounded" 
+                          sx={{ width: 40, height: 40 }}
+                        />
+                      )}
+                      <Box sx={{ flexGrow: 1 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: '#1e293b' }}>
+                          {option.label}
+                        </Typography>
+                        {(option.sku || option.model) && (
+                          <Typography variant="caption" sx={{ color: '#64748b' }}>
+                            {option.sku ? `SKU: ${option.sku}` : option.model}
+                          </Typography>
+                        )}
+                      </Box>
+                      <Chip 
+                        label={option.type} 
+                        size="small" 
+                        sx={{ textTransform: 'capitalize', fontSize: '0.65rem', height: 20, bgcolor: '#f1f5f9', color: '#475569' }} 
+                      />
+                    </li>
+                  );
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    fullWidth
+                    size="small"
+                    placeholder="Search products, categories, or brands..."
+                    InputProps={{
+                      ...params.InputProps, // REQUIRED: This preserves the ref bindings that stop the crash
+                      startAdornment: (
+                        <InputAdornment position="start" sx={{ pl: 1 }}>
+                          <Search sx={{ color: '#64748b' }} />
+                        </InputAdornment>
+                      )
+                    }}
+                    sx={{ bgcolor: '#f8fafc', borderRadius: 2 }}
+                  />
+                )}
               />
             </Box>
           )}
 
-          {/* Desktop Navigation Links (Hidden on Mobile) */}
+          {/* Desktop Navigation Links */}
           <Box sx={{ display: { xs: 'none', md: 'flex' }, order: 3, alignItems: 'center', gap: 2 }}>
             <Button component={Link} href="/" sx={{ color: '#1e293b', fontWeight: 600, textTransform: 'none' }}>
               Home
@@ -106,7 +179,7 @@ export default function Header({ categories = [], searchQuery = '', setSearchQue
           </Box>
         </Box>
 
-        {/* Mobile Expandable Menu with Smooth Fade-In Effect */}
+        {/* Mobile Expandable Menu */}
         <Fade in={mobileMenuOpen} timeout={300} unmountOnExit>
           <Paper
             elevation={4}
@@ -130,7 +203,7 @@ export default function Header({ categories = [], searchQuery = '', setSearchQue
             >
               Home
             </Button>
-            { <Button 
+            <Button 
               component={Link} 
               href="/about" 
               fullWidth 
@@ -138,7 +211,7 @@ export default function Header({ categories = [], searchQuery = '', setSearchQue
               sx={{ justifyContent: 'flex-start', color: '#1e293b', fontWeight: 600, textTransform: 'none', py: 1, px: 2, borderRadius: 2, '&:hover': { bgcolor: '#f8fafc' } }}
             >
               About us
-            </Button> }
+            </Button>
             <Button 
               component={Link} 
               href="/contact" 

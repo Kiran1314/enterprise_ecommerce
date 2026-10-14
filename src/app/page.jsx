@@ -254,7 +254,13 @@ export default function HomePage() {
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'var(--auto-canvas)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
       <Box>
-        <Header categories={categories} searchQuery={searchQuery} setSearchQuery={updateCatalogSearch} />
+        <Header 
+          categories={categories} 
+          brands={brands}
+          products={products}
+          searchQuery={searchQuery} 
+          setSearchQuery={updateCatalogSearch} 
+        />
 
         {/* 1. Categories Menu */}
         {categories.length > 0 && (
