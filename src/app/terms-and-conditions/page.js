@@ -142,10 +142,10 @@ export default function TermsAndConditionsPage() {
                 </Typography>
                 <Box sx={{ mt: 2 }}>
                   <Typography variant="body1">
-                    <strong>Email:</strong> <Link href="mailto:[Insert Email Address]" sx={{ color: '#6600cc', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>[Insert Email Address]</Link>
+                    <strong>Email:</strong> <Link href="mailto:[Insert Email Address]" sx={{ color: '#6600cc', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>sales@superrfjapan.com</Link>
                   </Typography>
                   <Typography variant="body1" sx={{ mt: 0.5 }}>
-                    <strong>Phone:</strong> <Link href="tel:[Insert Phone Number]" sx={{ color: '#6600cc', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>[Insert Phone Number]</Link>
+                    <strong>Phone:</strong> <Link href="tel:+971507675420" sx={{ color: '#6600cc', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>+971507675420</Link>
                   </Typography>
                 </Box>
               </Box>

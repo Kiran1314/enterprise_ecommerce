@@ -134,7 +134,7 @@ function ContactContent() {
               <Box sx={{ borderRadius: 3, overflow: 'hidden', border: '1px solid #cbd5e1', height: 260 }}>
                 <iframe
                   title="Store Location Map"
-                  src={settings?.mapEmbedUrl || 'https://www.google.com/maps?q=21C+Street,+G+Floor,+29733+96054,+Naif,+Deira,+Dubai+Municipality,+Show+Entrance,+Dubai+-+UAE&output=embed'}
+                  src={settings?.mapEmbedUrl || 'https://www.google.com/maps?q=High+Speed+(SUPER+RF+JAPAN)+Auto+Spare+Parts+TR+LLC&output=embed'}
                   width="100%"
                   height="100%"
                   style={{ border: 0 }}

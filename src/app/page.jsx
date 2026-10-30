@@ -164,12 +164,14 @@ export default function HomePage() {
 
   const updateCatalogSearch = (value) => {
     setSearchQuery(value);
+    setSelectedCategory(''); // Ensure category state is cleared so search heading displays
     setFitmentProducts(null);
     setVisibleProductCount(12);
   };
 
   const handleCategorySelect = (categoryName) => {
     setSelectedCategory(previous => previous === categoryName ? '' : categoryName);
+    setSearchQuery(''); // Clear search query when selecting a category
     setFitmentProducts(null);
     setActiveCategoryMenu(null);
     setVisibleProductCount(12);
@@ -221,7 +223,8 @@ export default function HomePage() {
 
     setFitmentLoading(true);
     setFitmentError('');
-    setSearchQuery('');
+    setSearchQuery(''); // Clear search query
+    setSelectedCategory(''); // Clear selected category
     try {
       const params = new URLSearchParams({ make: selectedMake, model: selectedModel, year: selectedYear });
       const response = await fetch(`/api/fitments?${params}`);
@@ -576,7 +579,8 @@ export default function HomePage() {
           <Container maxWidth="xl" sx={{ py: 3, px: { xs: 2, md: 4 }, scrollMarginTop: { xs: '190px', md: '166px' } }} id="products">
             <Paper elevation={0} sx={{ p: 3, borderRadius: 1, borderTop: '3px solid var(--auto-red)', boxShadow: '0 2px 8px rgba(32,35,38,.07)', bgcolor: '#fff' }}>
               <Typography variant="h6" fontWeight="bold" sx={{ mb: 3, color: 'text.primary', borderBottom: '1px solid #f0f0f0', pb: 2 }}>
-                {fitmentProducts ? `Parts for ${selectedYear} ${selectedMake} ${selectedModel}` : selectedCategory ? `${selectedCategory} parts` : searchQuery ? `Search Results for "${searchQuery}"` : 'Featured Products'}
+                {/* Ensure correct priority order for rendering title strings */}
+                {searchQuery ? `Search Results for "${searchQuery}"` : fitmentProducts ? `Parts for ${selectedYear} ${selectedMake} ${selectedModel}` : selectedCategory ? `${selectedCategory} parts` : 'Featured Products'}
               </Typography>
 
               {fitmentProducts?.some(product => product.isDemoData) && (
