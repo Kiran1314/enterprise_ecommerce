@@ -9,6 +9,7 @@ import { FilterList } from '@mui/icons-material';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ProductCard from '@/components/ProductCard';
+import { getProductAvailableStock } from '@/lib/productAvailability';
 
 export default function BrandProductsPage() {
   const { slug } = useParams();
@@ -41,7 +42,10 @@ export default function BrandProductsPage() {
       const matchedBrand = brandResult.success ? brandResult.data.find(item => item.slug === slug) : null;
       setBrand(matchedBrand || null);
       const brandProducts = productResult.success
-        ? productResult.data.filter(product => String(product.brand?._id || product.brand) === String(matchedBrand?._id))
+        ? productResult.data.filter(product =>
+          String(product.brand?._id || product.brand) === String(matchedBrand?._id) &&
+          getProductAvailableStock(product) > 0
+        )
         : [];
       setProducts(brandProducts);
       const usedCategories = new Set(brandProducts.flatMap(product => product.categories || []));
@@ -100,7 +104,13 @@ export default function BrandProductsPage() {
     setFilterLoading(true);
     setError('');
     try {
-      setFitmentProducts(await loadFitmentOptions({ make, model, year }));
+      const matchingProducts = await loadFitmentOptions({ make, model, year });
+      setFitmentProducts(matchingProducts.filter(product => product.fitments?.some(fitment =>
+        fitment.make === make &&
+        fitment.model === model &&
+        fitment.year === year &&
+        Number(fitment.stock) > 0
+      )));
       document.getElementById('brand-product-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (loadError) {
       setError(loadError.message);
@@ -123,11 +133,17 @@ export default function BrandProductsPage() {
     const source = fitmentProducts || products;
     const normalizedSearch = searchQuery.trim().toLowerCase();
     return source.filter(product => {
+      const hasStockForSelectedVehicle = !fitmentProducts || product.fitments?.some(fitment =>
+        fitment.make === make &&
+        fitment.model === model &&
+        fitment.year === year &&
+        Number(fitment.stock) > 0
+      );
       const matchesCategory = !selectedCategory || product.categories?.includes(selectedCategory);
       const matchesSearch = !normalizedSearch || product.title?.toLowerCase().includes(normalizedSearch) || product.sku?.toLowerCase().includes(normalizedSearch);
-      return matchesCategory && matchesSearch;
+      return getProductAvailableStock(product) > 0 && hasStockForSelectedVehicle && matchesCategory && matchesSearch;
     });
-  }, [fitmentProducts, products, searchQuery, selectedCategory]);
+  }, [fitmentProducts, products, searchQuery, selectedCategory, make, model, year]);
 
   if (loading) return <Box sx={{ p: 8, textAlign: 'center' }}>Loading brand catalog...</Box>;
   if (!brand) return <Container sx={{ py: 8 }}><Alert severity="warning">This brand could not be found.</Alert><Button component={Link} href="/" sx={{ mt: 2 }}>Return to store</Button></Container>;

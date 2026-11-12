@@ -10,6 +10,7 @@ import { useParams } from 'next/navigation';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ProductCard from '@/components/ProductCard';
+import { getProductAvailableStock } from '@/lib/productAvailability';
 
 export default function SubcategoryPage() {
   const params = useParams();
@@ -110,11 +111,11 @@ export default function SubcategoryPage() {
         const makeMatch = selectedMake ? f.make === selectedMake : true;
         const modelMatch = selectedModel ? f.model === selectedModel : true;
         const yearMatch = selectedYear ? f.year === selectedYear : true;
-        return makeMatch && modelMatch && yearMatch;
+        return makeMatch && modelMatch && yearMatch && Number(f.stock) > 0;
       });
     }
 
-    return matchesSub && matchesSearch && matchesVehicle;
+    return getProductAvailableStock(p) > 0 && matchesSub && matchesSearch && matchesVehicle;
   });
 
   if (loading) return <Box sx={{ p: 8, textAlign: 'center' }}>Loading category products...</Box>;
