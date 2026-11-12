@@ -4,6 +4,7 @@ import { useCart } from './Providers';
 import { ShoppingCart, MessageCircle, Eye } from 'lucide-react';
 import Link from 'next/link';
 import { getProductPricing } from '@/lib/productPricing';
+import { getProductAvailableStock } from '@/lib/productAvailability';
 
 export default function ProductCard({ product }) {
   const { addToCart } = useCart();
@@ -31,9 +32,7 @@ export default function ProductCard({ product }) {
   const colorAttr = product.attributes?.find(a => a.type === 'image' || a.key.toLowerCase().includes('color'));
 
   // Calculate total stock across variations or direct stock
-  let totalStock = product.fitments?.length
-    ? product.fitments.reduce((sum, fitment) => sum + (Number(fitment.stock) || 0), 0)
-    : (product.stock || 0);
+  const totalStock = getProductAvailableStock(product);
   let lowestStock = totalStock;
   product.attributes?.forEach(attr => {
     attr.options?.forEach(opt => {

@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { Box, Container, Grid, Paper, Typography, Button, Fade } from '@mui/material';
+import { Box, Container, Grid, Paper, Typography, Button, Fade, Alert } from '@mui/material';
 import { ArrowBack, EmojiEvents, Groups} from '@mui/icons-material';
 import StarsIcon from '@mui/icons-material/Stars';
 import Link from 'next/link';
@@ -55,9 +55,32 @@ const AnimatedCounter = ({ end, duration = 2000, suffix = '' }) => {
 
 export default function AboutUsPage() {
   const [loaded, setLoaded] = useState(false);
+  const [brands, setBrands] = useState([]);
+  const [brandsError, setBrandsError] = useState('');
 
   useEffect(() => {
     setLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/brands')
+      .then(async response => {
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'Brand logos could not be loaded.');
+        }
+        return result.data;
+      })
+      .then(data => {
+        if (active) setBrands(data.filter(brand => brand.name?.trim().toLowerCase() !== 'generic'));
+      })
+      .catch(error => {
+        console.error('Error loading About page brand logos:', error);
+        if (active) setBrandsError('Brand logos could not be loaded. Please try again later.');
+      });
+
+    return () => { active = false; };
   }, []);
 
   return (
@@ -122,10 +145,12 @@ export default function AboutUsPage() {
                 position: 'relative'
               }}>
                 <video 
-                  src="https://e2muzpjmksmg0rxf.public.blob.vercel-storage.com/Videos/Superjapan_promo.mp4" 
+                  src="https://storage.ibcstudio.com/images/Superjapan_promo.mp4"
                   autoPlay 
+                  muted
                   loop 
                   playsInline
+                  preload="auto"
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
               </Box>
@@ -199,41 +224,25 @@ export default function AboutUsPage() {
               We partner with top global manufacturers to bring you the best and most reliable auto spare parts available in the market today.
             </Typography>
             
-            <Box sx={{ 
-              display: 'flex', 
-              flexWrap: 'wrap', 
-              justifyContent: 'center', 
-              gap: { xs: 3, md: 5 }
-            }}>
-              {[1, 2, 3, 4, 5, 6].map((item) => (
-                <Box 
-                  key={item} 
-                  sx={{ 
-                    width: { xs: 100, md: 140 }, 
-                    height: 70, 
-                    bgcolor: '#ffffff',
-                    border: '1px solid #e2e8f0', 
-                    borderRadius: 3, 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    transition: 'all 0.3s ease',
-                    filter: 'grayscale(100%) opacity(70%)',
-                    '&:hover': { 
-                      filter: 'grayscale(0%) opacity(100%)', 
-                      boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
-                      borderColor: '#BD5E22', 
-                      cursor: 'pointer',
-                      transform: 'scale(1.05)'
-                    }
-                  }}
-                >
-                  <Typography variant="subtitle1" fontWeight="bold" color="#94a3b8">
-                    LOGO {item}
-                  </Typography>
-                </Box>
-              ))}
-            </Box>
+            {brandsError ? (
+              <Alert severity="error">{brandsError}</Alert>
+            ) : (
+              <Grid container spacing={{ xs: 1, sm: 1.5, md: 2 }} sx={{ justifyContent: 'center' }}>
+                {brands.map(brand => (
+                  <Grid key={brand._id} size={{ xs: 4, sm: 3, md: 2, lg: 1.5 }}>
+                    <Paper component={Link} href={`/brands/${brand.slug}`} elevation={0} sx={{
+                      minHeight: { xs: 90, sm: 108 }, p: 1.5, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1,
+                      textDecoration: 'none', color: '#0f172a', border: '1px solid #e2e8f0', borderRadius: 1,
+                      transition: 'transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease',
+                      '&:hover, &:focus-visible': { transform: 'translateY(-3px)', borderColor: '#BD5E22', boxShadow: '0 8px 20px rgba(24,32,38,.1)', outline: 'none' }
+                    }}>
+                      <Box component="img" loading="lazy" src={brand.logo || '/assets/images/logo/logo.jpg'} alt={`${brand.name} logo`} sx={{ width: '100%', height: { xs: 42, sm: 52 }, objectFit: 'contain' }} />
+                      <Typography variant="caption" fontWeight={800} sx={{ textAlign: 'center', lineHeight: 1.2 }}>{brand.name}</Typography>
+                    </Paper>
+                  </Grid>
+                ))}
+              </Grid>
+            )}
           </Box>
         </Fade>
 

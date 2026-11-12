@@ -8,6 +8,7 @@ import {
 import { ChevronLeft, ChevronRight, KeyboardArrowDown, Settings } from '@mui/icons-material';
 import Link from 'next/link';
 import Header from '@/components/Header';
+import { getProductAvailableStock } from '@/lib/productAvailability';
 
 // Dynamic Imports for Code Splitting
 const ProductCard = dynamic(() => import('@/components/ProductCard'), { 
@@ -90,8 +91,9 @@ export default function HomePage() {
         setBanners(activeBanners);
       }
       if (prodData.success) {
-        const spareParts = prodData.data.filter(product => product.sku?.startsWith('SJ-'));
-        const storefrontProducts = spareParts.length > 0 ? spareParts : prodData.data;
+        const inStockProducts = prodData.data.filter(product => getProductAvailableStock(product) > 0);
+        const spareParts = inStockProducts.filter(product => product.sku?.startsWith('SJ-'));
+        const storefrontProducts = spareParts.length > 0 ? spareParts : inStockProducts;
         // Shuffle the products to mix random items on load
         setProducts(shuffleArray(storefrontProducts));
         
@@ -230,7 +232,12 @@ export default function HomePage() {
       const response = await fetch(`/api/fitments?${params}`);
       const result = await response.json();
       if (!result.success) throw new Error(result.error || 'Search failed');
-      setFitmentProducts(result.data);
+      setFitmentProducts(result.data.filter(product => product.fitments?.some(fitment =>
+        fitment.make === selectedMake &&
+        fitment.model === selectedModel &&
+        fitment.year === selectedYear &&
+        Number(fitment.stock) > 0
+      )));
       setVisibleProductCount(12);
       document.getElementById('products')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch {
@@ -252,6 +259,7 @@ export default function HomePage() {
     });
   }, [categories, fitmentProducts, products, searchQuery, selectedCategory]);
 
+  const brandsForDisplay = brands.filter(brand => brand.name?.trim().toLowerCase() !== 'generic');
   const carouselReviews = [...sampleReviews, ...reviews];
 
   return (
@@ -627,7 +635,7 @@ export default function HomePage() {
         </Fade>
 
         {/* 7. Brands Grid Fade */}
-        {brands.length > 0 && (
+        {brandsForDisplay.length > 0 && (
           <Fade in={pageLoaded} timeout={3000}>
             <Box component="section" aria-labelledby="choose-by-brands-title" sx={{ bgcolor: '#fff', borderTop: '1px solid var(--auto-border)', py: { xs: 3, md: 4 } }}>
               <Container maxWidth="xl" sx={{ px: { xs: 2, md: 4 } }}>
@@ -636,7 +644,7 @@ export default function HomePage() {
                   <Typography variant="body2" color="text.secondary">Browse available parts by manufacturer</Typography>
                 </Box>
                 <Grid container spacing={{ xs: 1, sm: 1.5, md: 2 }}>
-                  {brands.map(brand => (
+                  {brandsForDisplay.map(brand => (
                     <Grid key={brand._id} size={{ xs: 4, sm: 3, md: 2, lg: 1.5 }}>
                       <Paper component={Link} href={`/brands/${brand.slug}`} elevation={0} sx={{
                         minHeight: { xs: 90, sm: 108 }, p: 1.5, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1,
