@@ -27,6 +27,7 @@ export default function AdminBannerPage() {
   const imageInputRef = useRef(null);
   const [imageUploading, setImageUploading] = useState(false);
   const [imageUploadError, setImageUploadError] = useState('');
+  const [externalImageUrl, setExternalImageUrl] = useState('');
 
   // Form payload
   const [formData, setFormData] = useState({
@@ -69,6 +70,7 @@ export default function AdminBannerPage() {
   const handleOpenCreate = () => {
     setModalMode('CREATE');
     setImageUploadError('');
+    setExternalImageUrl('');
     setFormData({
       title: '',
       subtitle: '',
@@ -83,11 +85,13 @@ export default function AdminBannerPage() {
   const handleOpenEdit = (banner) => {
     setModalMode('EDIT');
     setImageUploadError('');
+    const isExternalImage = /^https?:\/\//i.test(banner.image || '');
+    setExternalImageUrl(isExternalImage ? banner.image : '');
     setCurrentBanner(banner);
     setFormData({
       title: banner.title || '',
       subtitle: banner.subtitle || '',
-      image: banner.image || '',
+      image: isExternalImage ? '' : banner.image || '',
       link: banner.link || '',
       order: banner.order || 0,
       isActive: banner.isActive ?? true
@@ -118,12 +122,23 @@ export default function AdminBannerPage() {
 
   const handleFormSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.image) {
-      setImageUploadError('Upload a banner image before saving.');
+    setImageUploadError('');
+    const imageUrl = externalImageUrl.trim();
+    if (imageUrl) {
+      try {
+        const parsedImageUrl = new URL(imageUrl);
+        if (!['http:', 'https:'].includes(parsedImageUrl.protocol)) throw new Error();
+      } catch {
+        setImageUploadError('Enter a valid external image URL starting with http:// or https://.');
+        return;
+      }
+    } else if (!formData.image) {
+      setImageUploadError('Upload a banner image or enter an external image URL before saving.');
       return;
     }
     const payload = {
       ...formData,
+      image: imageUrl || formData.image,
       order: Number(formData.order)
     };
 
@@ -166,6 +181,7 @@ export default function AdminBannerPage() {
       const response = await fetch('/api/admin/banners/upload', { method: 'POST', body: uploadData });
       const result = await response.json();
       if (!response.ok || !result.success) throw new Error(result.error || 'Image upload failed.');
+      setExternalImageUrl('');
       setFormData(previous => ({ ...previous, image: result.image }));
     } catch (error) {
       setImageUploadError(error.message || 'Image upload failed.');
@@ -395,7 +411,22 @@ export default function AdminBannerPage() {
                       </Button>
                       <Typography variant="caption" color="text.secondary">JPG, PNG, WebP, or GIF. Maximum 8 MB.</Typography>
                     </Box>
-                    {formData.image && <Box component="img" src={formData.image} alt="Banner preview" sx={{ width: '100%', height: 150, objectFit: 'cover', border: '1px solid #e2e8f0', borderRadius: 1 }} />}
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="url"
+                      label="Or use an external image URL"
+                      placeholder="https://example.com/banner.jpg"
+                      value={externalImageUrl}
+                      onChange={event => {
+                        const value = event.target.value;
+                        setExternalImageUrl(value);
+                        if (value) setFormData(previous => ({ ...previous, image: '' }));
+                        setImageUploadError('');
+                      }}
+                      helperText="Use a publicly accessible image link starting with http:// or https://."
+                    />
+                    {(externalImageUrl || formData.image) && <Box component="img" src={externalImageUrl || formData.image} alt="Banner preview" sx={{ width: '100%', height: 150, objectFit: 'cover', border: '1px solid #e2e8f0', borderRadius: 1 }} />}
                     {imageUploadError && <Alert severity="error">{imageUploadError}</Alert>}
                   </Box>
                 </Grid>
