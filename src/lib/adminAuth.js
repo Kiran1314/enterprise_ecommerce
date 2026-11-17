@@ -9,6 +9,6 @@ export async function getAdmin(request) {
 
   await dbConnect();
   return Admin.findById(session.id)
-    .select('name email role isActive')
+    .select('name email role navigationLinks isActive')
     .then((admin) => (admin?.isActive ? admin : null));
 }

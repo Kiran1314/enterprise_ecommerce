@@ -9,12 +9,14 @@ import {
 } from '@mui/icons-material';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { ADMIN_NAVIGATION_ITEMS } from '@/lib/adminNavigation';
 
 const drawerWidth = 260;
 
 export default function AdminLayout({ children }) {
   const [authorized, setAuthorized] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [navigationLinks, setNavigationLinks] = useState(['products']);
   const [pendingOrders, setPendingOrders] = useState(0);
   const pathname = usePathname();
   const router = useRouter();
@@ -33,22 +35,37 @@ export default function AdminLayout({ children }) {
       }
       setAuthorized(true);
       setIsSuperAdmin(result.data.role === 'SuperAdmin');
+      setNavigationLinks(Array.isArray(result.data.navigationLinks) ? result.data.navigationLinks : ['products']);
       loadOrders();
     }).catch(() => router.replace('/admin/login'));
     const interval = setInterval(loadOrders, 10000);
     return () => { active = false; clearInterval(interval); };
   }, [pathname, router]);
 
+  const iconsByKey = {
+    dashboard: <Dashboard />,
+    products: <Inventory />,
+    orders: <Badge badgeContent={pendingOrders} color="error" max={99}><ReceiptLong /></Badge>,
+    brands: <Category />,
+    banners: <ViewCarousel />,
+    settings: <LocalOffer />
+  };
   const menuItems = [
-    { text: 'Dashboard', icon: <Dashboard />, path: '/admin' },
-    { text: 'Products', icon: <Inventory />, path: '/admin/products' },
-    //{ text: 'Orders', icon: <Badge badgeContent={pendingOrders} color="error" max={99}><ReceiptLong /></Badge>, path: '/admin/orders' },
-    { text: 'Brands & Categories', icon: <Category />, path: '/admin/brands' },
-    { text: 'Promotional Banners', icon: <ViewCarousel />, path: '/admin/banner' },
-    { text: 'Store & Currency Settings', icon: <LocalOffer />, path: '/admin/settings' },
+    ...ADMIN_NAVIGATION_ITEMS
+      .filter(item => isSuperAdmin || navigationLinks.includes(item.key))
+      .map(item => ({ ...item, icon: iconsByKey[item.key] })),
     ...(isSuperAdmin ? [{ text: 'Admin Users', icon: <PeopleAlt />, path: '/admin/users' }] : [])
-
   ];
+  const canAccessCurrentPath = menuItems.some(item =>
+    pathname === item.path || (item.path !== '/admin' && pathname.startsWith(`${item.path}/`))
+  );
+  const firstAllowedPath = menuItems[0]?.path || '/admin/login';
+
+  useEffect(() => {
+    if (authorized && !canAccessCurrentPath) {
+      router.replace(firstAllowedPath);
+    }
+  }, [authorized, canAccessCurrentPath, firstAllowedPath, router]);
 
   if (pathname === '/admin/login') return children;
   if (!authorized) return null;

@@ -15,6 +15,7 @@ function publicAdmin(admin) {
     name: admin.name,
     email: admin.email,
     role: admin.role,
+    navigationLinks: Array.isArray(admin.navigationLinks) ? admin.navigationLinks : ['products'],
   };
 }
 

@@ -1,13 +1,16 @@
 'use client';
 import React, { useEffect, useState } from 'react';
-import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Paper, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, FormGroup, MenuItem, Paper, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
+import { ADMIN_NAVIGATION_ITEMS } from '@/lib/adminNavigation';
 
-const blankUser = { name: '', email: '', password: '', role: 'ProductManager' };
+const blankUser = { name: '', email: '', password: '', role: 'ProductManager', navigationLinks: ['products'] };
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState([]);
   const [form, setForm] = useState(blankUser);
   const [open, setOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [editForm, setEditForm] = useState({ password: '', navigationLinks: [] });
   const [error, setError] = useState('');
 
   const loadUsers = () => fetch('/api/admin/users').then(response => response.json()).then(result => {
@@ -20,16 +23,58 @@ export default function AdminUsersPage() {
   const saveUser = async event => {
     event.preventDefault();
     setError('');
-    const response = await fetch('/api/admin/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
-    const result = await response.json();
-    if (!response.ok || !result.success) {
-      setError(result.error || 'Unable to add this admin.');
-      return;
+    try {
+      const response = await fetch('/api/admin/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        setError(result.error || 'Unable to add this admin.');
+        return;
+      }
+      setOpen(false);
+      setForm(blankUser);
+      await loadUsers();
+    } catch {
+      setError('Unable to add this admin.');
     }
-    setOpen(false);
-    setForm(blankUser);
-    loadUsers();
   };
+
+  const openEditUser = user => {
+    setEditingUser(user);
+    setEditForm({
+      password: '',
+      navigationLinks: Array.isArray(user.navigationLinks) ? user.navigationLinks : ['products']
+    });
+    setError('');
+  };
+
+  const saveUserSettings = async event => {
+    event.preventDefault();
+    if (!editingUser) return;
+    setError('');
+    try {
+      const response = await fetch(`/api/admin/users/${editingUser._id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editForm)
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        setError(result.error || 'Unable to update this admin.');
+        return;
+      }
+      setEditingUser(null);
+      await loadUsers();
+    } catch {
+      setError('Unable to update this admin.');
+    }
+  };
+
+  const toggleNavigationLink = (current, key, checked) => ({
+    ...current,
+    navigationLinks: checked
+      ? [...new Set([...current.navigationLinks, key])]
+      : current.navigationLinks.filter(link => link !== key)
+  });
 
   const toggleUser = async user => {
     const response = await fetch(`/api/admin/users/${user._id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ isActive: !user.isActive }) });
@@ -50,7 +95,10 @@ export default function AdminUsersPage() {
           <TableHead><TableRow><TableCell>Name</TableCell><TableCell>Email</TableCell><TableCell>Role</TableCell><TableCell>Status</TableCell><TableCell align="right">Action</TableCell></TableRow></TableHead>
           <TableBody>{users.map(user => <TableRow key={user._id}>
             <TableCell>{user.name}</TableCell><TableCell>{user.email}</TableCell><TableCell>{user.role}</TableCell><TableCell>{user.isActive ? 'Active' : 'Inactive'}</TableCell>
-            <TableCell align="right"><Button size="small" onClick={() => toggleUser(user)}>{user.isActive ? 'Deactivate' : 'Activate'}</Button></TableCell>
+            <TableCell align="right">
+              <Button size="small" onClick={() => openEditUser(user)}>Password &amp; access</Button>
+              <Button size="small" onClick={() => toggleUser(user)}>{user.isActive ? 'Deactivate' : 'Activate'}</Button>
+            </TableCell>
           </TableRow>)}</TableBody>
         </Table>
       </Paper>
@@ -64,8 +112,53 @@ export default function AdminUsersPage() {
             <TextField select label="Role" value={form.role} onChange={event => setForm({ ...form, role: event.target.value })}>
               <MenuItem value="ProductManager">Product Manager</MenuItem><MenuItem value="OrderManager">Order Manager</MenuItem><MenuItem value="SuperAdmin">Super Admin</MenuItem>
             </TextField>
+            <Box>
+              <Typography variant="subtitle2" fontWeight={700}>Admin navigation access</Typography>
+              <FormGroup>
+                {ADMIN_NAVIGATION_ITEMS.map(item => (
+                  <FormControlLabel
+                    key={item.key}
+                    label={item.text}
+                    control={<Checkbox checked={form.navigationLinks.includes(item.key)} disabled={form.navigationLinks.length === 1 && form.navigationLinks.includes(item.key)} onChange={event => setForm(current => toggleNavigationLink(current, item.key, event.target.checked))} />}
+                  />
+                ))}
+              </FormGroup>
+              <Typography variant="caption" color="text.secondary">Keep at least one navigation link enabled.</Typography>
+            </Box>
           </DialogContent>
           <DialogActions sx={{ p: 2 }}><Button onClick={() => setOpen(false)}>Cancel</Button><Button type="submit" variant="contained">Create user</Button></DialogActions>
+        </Box>
+      </Dialog>
+      <Dialog open={Boolean(editingUser)} onClose={() => setEditingUser(null)} fullWidth maxWidth="sm">
+        <DialogTitle>Manage {editingUser?.name}</DialogTitle>
+        <Box component="form" onSubmit={saveUserSettings}>
+          <DialogContent sx={{ display: 'grid', gap: 2 }}>
+            <TextField
+              label="Set new password"
+              type="password"
+              helperText="Leave blank to keep the current password. Must be at least 8 characters."
+              slotProps={{ htmlInput: { minLength: 8 } }}
+              value={editForm.password}
+              onChange={event => setEditForm({ ...editForm, password: event.target.value })}
+            />
+            <Box>
+              <Typography variant="subtitle2" fontWeight={700}>Admin navigation access</Typography>
+              <FormGroup>
+                {ADMIN_NAVIGATION_ITEMS.map(item => (
+                  <FormControlLabel
+                    key={item.key}
+                    label={item.text}
+                    control={<Checkbox checked={editForm.navigationLinks.includes(item.key)} disabled={editForm.navigationLinks.length === 1 && editForm.navigationLinks.includes(item.key)} onChange={event => setEditForm(current => toggleNavigationLink(current, item.key, event.target.checked))} />}
+                  />
+                ))}
+              </FormGroup>
+              <Typography variant="caption" color="text.secondary">Keep at least one navigation link enabled.</Typography>
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{ p: 2 }}>
+            <Button onClick={() => setEditingUser(null)}>Cancel</Button>
+            <Button type="submit" variant="contained">Save changes</Button>
+          </DialogActions>
         </Box>
       </Dialog>
     </Box>

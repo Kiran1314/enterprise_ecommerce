@@ -4,6 +4,9 @@ import Admin from '@/models/Admin';
 import { getAdmin } from '@/lib/adminAuth';
 import { hashPassword } from '@/lib/auth';
 import { recordActivity } from '@/lib/activity';
+import { ADMIN_NAVIGATION_ITEMS } from '@/lib/adminNavigation';
+
+const navigationKeys = ADMIN_NAVIGATION_ITEMS.map(item => item.key);
 
 export async function PATCH(request, { params }) {
   const actor = await getAdmin(request);
@@ -18,6 +21,9 @@ export async function PATCH(request, { params }) {
     if (updates.role !== undefined && !['SuperAdmin', 'ProductManager', 'OrderManager'].includes(updates.role)) {
       return NextResponse.json({ success: false, error: 'Invalid admin role.' }, { status: 400 });
     }
+    if (updates.navigationLinks !== undefined && (!Array.isArray(updates.navigationLinks) || updates.navigationLinks.length === 0 || updates.navigationLinks.some(key => !navigationKeys.includes(key)))) {
+      return NextResponse.json({ success: false, error: 'Select valid admin navigation links.' }, { status: 400 });
+    }
     if (updates.isActive === false && user.role === 'SuperAdmin' && await Admin.countDocuments({ role: 'SuperAdmin', isActive: true }) < 2) {
       return NextResponse.json({ success: false, error: 'At least one active super admin must remain.' }, { status: 409 });
     }
@@ -25,13 +31,14 @@ export async function PATCH(request, { params }) {
     if (updates.email !== undefined) user.email = String(updates.email).trim().toLowerCase();
     if (updates.role !== undefined) user.role = updates.role;
     if (updates.isActive !== undefined) user.isActive = Boolean(updates.isActive);
-    if (updates.password) {
-      if (String(updates.password).length < 8) return NextResponse.json({ success: false, error: 'Password must be at least 8 characters.' }, { status: 400 });
+    if (updates.navigationLinks !== undefined) user.navigationLinks = [...new Set(updates.navigationLinks)];
+    if (updates.password !== undefined && updates.password !== '') {
+      if (typeof updates.password !== 'string' || updates.password.length < 8) return NextResponse.json({ success: false, error: 'Password must be at least 8 characters.' }, { status: 400 });
       user.password = await hashPassword(updates.password);
     }
     await user.save();
     await recordActivity({ actor, actorType: 'Admin', action: 'updated_admin', entityType: 'Admin', entityId: user._id, description: `${actor.name} updated admin account ${user.email}.` });
-    return NextResponse.json({ success: true, data: { _id: user._id, name: user.name, email: user.email, role: user.role, isActive: user.isActive } });
+    return NextResponse.json({ success: true, data: { _id: user._id, name: user.name, email: user.email, role: user.role, navigationLinks: user.navigationLinks, isActive: user.isActive } });
   } catch (error) {
     const status = error.code === 11000 ? 409 : 500;
     return NextResponse.json({ success: false, error: status === 409 ? 'An admin with this email already exists.' : 'Unable to update admin.' }, { status });
