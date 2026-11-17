@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Box, Typography, Button, Container, Grid, Paper, IconButton, TextField, Collapse, Slider, Divider, Dialog, MenuItem
+  Box, Typography, Button, Container, Grid, Paper, IconButton, TextField, Collapse, Divider, Dialog, MenuItem
 } from '@mui/material';
 import { ExpandMore, ExpandLess, FilterList, ZoomIn, Close, ChevronLeft, ChevronRight } from '@mui/icons-material';
 import { useParams } from 'next/navigation';
@@ -16,7 +16,6 @@ export default function ProductDetailPage() {
   const slug = params?.slug;
 
   const [product, setProduct] = useState(null);
-  const [allProducts, setAllProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [currency, setCurrency] = useState('$');
   const [loading, setLoading] = useState(true);
@@ -31,10 +30,6 @@ export default function ProductDetailPage() {
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
-  const [filterCategory, setFilterCategory] = useState('ALL');
-  const [priceRange, setPriceRange] = useState([0, 1000]);
-  const [maxProductPrice, setMaxProductPrice] = useState(1000);
-
   const thumbnailScrollRef = useRef(null);
   const { addToCart } = useCart();
 
@@ -42,10 +37,9 @@ export default function ProductDetailPage() {
     if (!slug) return;
     Promise.all([
       fetch(`/api/products/${slug}`).then(res => res.json()),
-      fetch('/api/products').then(res => res.json()),
       fetch('/api/categories').then(res => res.json()),
       fetch('/api/settings').then(res => res.json())
-    ]).then(([prodData, allProdData, catData, settingsData]) => {
+    ]).then(([prodData, catData, settingsData]) => {
       if (prodData.success) {
         const p = prodData.data;
         setProduct(p);
@@ -53,12 +47,6 @@ export default function ProductDetailPage() {
         const defaults = {};
         p.attributes?.forEach(attr => { defaults[attr.key] = attr.value || attr.options?.[0]?.label; });
         setSelectedAttributes(defaults);
-      }
-      if (allProdData.success) {
-        setAllProducts(allProdData.data);
-        const maxP = Math.max(...allProdData.data.map(p => p.offerPrice || p.price), 1000);
-        setMaxProductPrice(maxP);
-        setPriceRange([0, maxP]);
       }
       if (catData.success) setCategories(catData.data);
       if (settingsData.success && settingsData.data?.currencySymbol) setCurrency(settingsData.data.currencySymbol);
@@ -127,20 +115,29 @@ export default function ProductDetailPage() {
                 </Typography>
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="caption" fontWeight="bold" color="text.secondary" sx={{ mb: 1, display: 'block' }}>CATEGORIES</Typography>
-                  {categories.map(cat => (
-                    <Typography key={cat._id} variant="body2" onClick={() => setFilterCategory(cat.name)} sx={{ cursor: 'pointer', fontSize: '0.8rem', py: 0.5, color: filterCategory === cat.name ? 'var(--auto-red)' : 'text.secondary', fontWeight: filterCategory === cat.name ? 'bold' : 'normal' }}>
-                      {cat.name}
-                    </Typography>
-                  ))}
-                </Box>
-                <Divider sx={{ my: 1 }} />
-                <Box>
-                  <Typography variant="caption" fontWeight="bold" color="text.secondary" sx={{ mb: 1, display: 'block' }}>PRICE RANGE</Typography>
-                  <Slider value={priceRange} onChange={(e, val) => setPriceRange(val)} valueLabelDisplay="auto" min={0} max={maxProductPrice} sx={{ color: 'var(--auto-red)' }} />
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="caption">{currency}{priceRange[0]}</Typography>
-                    <Typography variant="caption">{currency}{priceRange[1]}</Typography>
-                  </Box>
+                  {categories.map(cat => {
+                    const isProductCategory = product.categories?.includes(cat.name);
+                    return (
+                      <Typography
+                        key={cat._id}
+                        variant="body2"
+                        sx={{
+                          fontSize: '0.8rem',
+                          px: 1,
+                          py: 0.5,
+                          mb: 0.25,
+                          borderLeft: '3px solid',
+                          borderColor: isProductCategory ? '#BD5E22' : 'transparent',
+                          borderRadius: '0 4px 4px 0',
+                          bgcolor: isProductCategory ? 'rgba(189, 94, 34, 0.1)' : 'transparent',
+                          color: isProductCategory ? '#BD5E22' : 'text.secondary',
+                          fontWeight: isProductCategory ? 'bold' : 'normal'
+                        }}
+                      >
+                        {cat.name}
+                      </Typography>
+                    );
+                  })}
                 </Box>
               </Paper>
             </Grid>
@@ -249,7 +246,7 @@ export default function ProductDetailPage() {
 
                     {hasVehicleFitments && (
                       <Box sx={{ my: 2, borderTop: '1px solid #f0f0f0', pt: 1.5 }}>
-                        <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 1 }}>Vehicle compatibility and availability</Typography>
+                        <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 1 }}>Vehicle compatibility</Typography>
                         <TextField
                           select
                           fullWidth
@@ -263,12 +260,12 @@ export default function ProductDetailPage() {
                         >
                           {product.fitments.map((fitment, index) => (
                             <MenuItem key={`${fitment.make}-${fitment.model}-${fitment.year}-${index}`} value={`${fitment.make}|${fitment.model}|${fitment.year}`} disabled={Number(fitment.stock || 0) < 1}>
-                              {fitment.make} · {fitment.model} · {fitment.year} · {Number(fitment.stock || 0) > 0 ? `${fitment.stock} in stock` : 'Out of stock'}
+                              {fitment.make} · {fitment.model} · {fitment.year}
                             </MenuItem>
                           ))}
                         </TextField>
                         {selectedFitment && <Typography variant="caption" color={Number(selectedFitment.stock || 0) > 0 ? 'success.main' : 'error'} sx={{ display: 'block', mt: 0.75 }}>
-                          {selectedFitment.make} {selectedFitment.model} {selectedFitment.year}: {selectedFitment.stock ?? 0} available
+                          {Number(selectedFitment.stock || 0) > 0 ? 'In stock' : 'Out of stock'}
                         </Typography>}
                       </Box>
                     )}

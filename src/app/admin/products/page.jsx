@@ -4,7 +4,7 @@ import {
   Box, Typography, Button, TextField, Table, TableBody, TableCell, TableContainer, 
   TableHead, TableRow, Paper, Dialog, DialogTitle, DialogContent, DialogActions, 
   Checkbox, FormControlLabel, IconButton, Chip, Grid, Autocomplete, Divider, Pagination,
-  FormControl, InputLabel, Select, MenuItem, Alert, Tabs, Tab
+  FormControl, InputLabel, Select, MenuItem, Alert
 } from '@mui/material';
 import { 
   Add, Search, Edit, Delete, Visibility, Close, DeleteSweep as DeleteIcon, 
@@ -44,9 +44,7 @@ export default function AdminProductsPage() {
   const [tagInputLabel, setTagInputLabel] = useState('');
   const [tagInputBgColor, setTagInputBgColor] = useState('#6600cc');
   const [editingTagIndex, setEditingTagIndex] = useState(null);
-
-  // Image Upload Mode Tab State
-  const [imageInputMode, setImageInputMode] = useState('upload'); // 'upload' or 'url'
+  const [editingSavedTagLabel, setEditingSavedTagLabel] = useState(null);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -90,6 +88,28 @@ export default function AdminProductsPage() {
   }, []);
 
   const currencySymbol = globalSettings?.currencySymbol || '$';
+
+  const savedCustomTags = useMemo(() => {
+    const tagsByLabel = new Map();
+    products.forEach(product => {
+      product.customTags?.forEach(tag => {
+        const label = tag.label?.trim();
+        if (!label) return;
+        const savedTag = tagsByLabel.get(label) || {
+          label,
+          bgColor: tag.bgColor || '#6600cc',
+          productIds: new Set()
+        };
+        savedTag.productIds.add(product._id);
+        tagsByLabel.set(label, savedTag);
+      });
+    });
+    return Array.from(tagsByLabel.values(), tag => ({
+      label: tag.label,
+      bgColor: tag.bgColor,
+      productCount: tag.productIds.size
+    }));
+  }, [products]);
 
   const availableCategoryOptions = useMemo(() => {
     const list = [];
@@ -419,7 +439,6 @@ export default function AdminProductsPage() {
       images: ['', '', ''], brand: brands[0] || null, categories: [], fitments: [], customTags: [], attributes: [], highlights: [],
       isFeatured: false, hasInquiry: false, whatsappNumber: globalSettings?.companyPhone || ''
     });
-    setImageInputMode('upload');
     setIsModalOpen(true);
   };
 
@@ -448,7 +467,6 @@ export default function AdminProductsPage() {
       hasInquiry: !!product.hasInquiry,
       whatsappNumber: product.whatsappNumber || globalSettings?.companyPhone || ''
     });
-    setImageInputMode('upload');
     setIsModalOpen(true);
   };
 
@@ -558,11 +576,48 @@ export default function AdminProductsPage() {
     setTagInputLabel('');
     setTagInputBgColor('#6600cc');
     setEditingTagIndex(null);
+    setEditingSavedTagLabel(null);
     setIsTagsModalOpen(true);
   };
 
-  const handleSaveCustomTag = () => {
+  const handleSaveCustomTag = async () => {
     if (!tagInputLabel.trim()) return;
+    if (editingSavedTagLabel !== null) {
+      try {
+        const response = await fetch('/api/products/custom-tags', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            oldLabel: editingSavedTagLabel,
+            label: tagInputLabel.trim(),
+            bgColor: tagInputBgColor
+          })
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'Unable to update custom tag.');
+        }
+        setFormData(previous => ({
+          ...previous,
+          customTags: previous.customTags.map(tag => tag.label === editingSavedTagLabel
+            ? { ...tag, label: tagInputLabel.trim(), bgColor: tagInputBgColor }
+            : tag)
+        }));
+        setProducts(previous => previous.map(product => ({
+          ...product,
+          customTags: product.customTags?.map(tag => tag.label === editingSavedTagLabel
+            ? { ...tag, label: tagInputLabel.trim(), bgColor: tagInputBgColor }
+            : tag)
+        })));
+        setEditingSavedTagLabel(null);
+        setTagInputLabel('');
+        setTagInputBgColor('#6600cc');
+      } catch (error) {
+        alert(error.message || 'Unable to update custom tag.');
+      }
+      return;
+    }
+
     const newTags = [...formData.customTags];
     if (editingTagIndex !== null) {
       newTags[editingTagIndex] = { label: tagInputLabel, bgColor: tagInputBgColor };
@@ -575,14 +630,64 @@ export default function AdminProductsPage() {
     setTagInputBgColor('#6600cc');
   };
 
+  const handleUseSavedCustomTag = (tag) => {
+    if (formData.customTags.some(existingTag => existingTag.label === tag.label)) return;
+    setFormData(previous => ({
+      ...previous,
+      customTags: [...previous.customTags, { label: tag.label, bgColor: tag.bgColor }]
+    }));
+  };
+
+  const handleEditSavedCustomTag = (tag) => {
+    setTagInputLabel(tag.label);
+    setTagInputBgColor(tag.bgColor || '#6600cc');
+    setEditingTagIndex(null);
+    setEditingSavedTagLabel(tag.label);
+  };
+
+  const handleDeleteSavedCustomTag = async (tag) => {
+    if (!confirm(`Delete "${tag.label}" from all products?`)) return;
+    try {
+      const response = await fetch('/api/products/custom-tags', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label: tag.label })
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Unable to delete custom tag.');
+      }
+      setFormData(previous => ({
+        ...previous,
+        customTags: previous.customTags.filter(existingTag => existingTag.label !== tag.label)
+      }));
+      setProducts(previous => previous.map(product => ({
+        ...product,
+        customTags: product.customTags?.filter(existingTag => existingTag.label !== tag.label)
+      })));
+      if (editingSavedTagLabel === tag.label) {
+        setEditingSavedTagLabel(null);
+        setTagInputLabel('');
+        setTagInputBgColor('#6600cc');
+      }
+    } catch (error) {
+      alert(error.message || 'Unable to delete custom tag.');
+    }
+  };
+
   const handleEditCustomTag = (index) => {
     setTagInputLabel(formData.customTags[index].label);
     setTagInputBgColor(formData.customTags[index].bgColor || '#6600cc');
     setEditingTagIndex(index);
+    setEditingSavedTagLabel(null);
+    setIsTagsModalOpen(true);
   };
 
   const handleDeleteCustomTag = (index) => {
-    setFormData({ ...formData, customTags: formData.customTags.filter((_, i) => i !== index) });
+    setFormData(previous => ({
+      ...previous,
+      customTags: previous.customTags.filter((_, i) => i !== index)
+    }));
     if (editingTagIndex === index) {
       setTagInputLabel('');
       setEditingTagIndex(null);
@@ -860,7 +965,11 @@ export default function AdminProductsPage() {
                 <Button variant="outlined" startIcon={<CodeIcon />} onClick={handleOpenTagsModal} sx={{ textTransform: 'none', borderRadius: 2 }}>Configure Custom Tags</Button>
                 <Box sx={{ display: 'flex', gap: 0.5, mt: 1.5, flexWrap: 'wrap' }}>
                   {formData.customTags.map((tag, idx) => (
-                    <Chip key={idx} label={tag.label} sx={{ bgcolor: tag.bgColor, color: '#fff', fontWeight: 'bold' }} size="small" />
+                    <Box key={`${tag.label}-${idx}`} sx={{ display: 'inline-flex', alignItems: 'center', border: '1px solid', borderColor: 'divider', borderRadius: 5, pl: 0.5 }}>
+                      <Chip label={tag.label} sx={{ bgcolor: tag.bgColor, color: '#fff', fontWeight: 'bold' }} size="small" />
+                      <IconButton aria-label={`Edit ${tag.label}`} size="small" onClick={() => handleEditCustomTag(idx)}><Edit fontSize="small" /></IconButton>
+                      <IconButton aria-label={`Remove ${tag.label} from this product`} color="error" size="small" onClick={() => handleDeleteCustomTag(idx)}><Delete fontSize="small" /></IconButton>
+                    </Box>
                   ))}
                 </Box>
               </Grid>
@@ -925,7 +1034,7 @@ export default function AdminProductsPage() {
                 </Grid>
               )}
 
-              {/* Main Product Images Upload - With Tabs */}
+              {/* Main Product Images */}
               {!hasColorImageAttribute && (
                 <Grid size={{ xs: 12 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
@@ -933,39 +1042,16 @@ export default function AdminProductsPage() {
                     <Button size="small" onClick={addImageField} sx={{ textTransform: 'none' }}>+ Add Image Slot</Button>
                   </Box>
                   
-                  <Box sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}>
-                    <Tabs value={imageInputMode} onChange={(e, v) => setImageInputMode(v)} size="small" sx={{ minHeight: 36 }}>
-                      <Tab label="Upload to Storage" value="upload" sx={{ minHeight: 36, py: 0, textTransform: 'none' }} />
-                      <Tab label="Paste External URL" value="url" sx={{ minHeight: 36, py: 0, textTransform: 'none' }} />
-                    </Tabs>
-                  </Box>
-
                   {formData.images.map((img, idx) => (
-                    imageInputMode === 'upload' ? (
-                      <Box key={idx} sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'center' }}>
-                        <Button variant="outlined" component="label" startIcon={<Upload />} disabled={isUploading} sx={{ minWidth: 160, textTransform: 'none' }}>
-                          {isUploading ? 'Uploading...' : 'Upload Image'}
-                          <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden onChange={e => handleFileUpload(e, (url) => {
-                            const updated = [...formData.images];
-                            updated[idx] = url;
-                            setFormData({ ...formData, images: updated });
-                          })} />
-                        </Button>
-                        {img && <img src={img} alt="preview" style={{ width: 40, height: 40, objectFit: 'cover', border: '1px solid #e2e8f0', borderRadius: 4 }} />}
-                        <TextField fullWidth size="small" placeholder={`Saves to /assets/images/spare-parts/ - Path #${idx + 1}`} value={img} disabled sx={{ bgcolor: '#f1f5f9' }} />
-                        <IconButton color="error" onClick={() => removeImageField(idx)}><DeleteIcon fontSize="small" /></IconButton>
-                      </Box>
-                    ) : (
-                      <Box key={idx} sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'center' }}>
-                        {img && <img src={img} alt="preview" style={{ width: 40, height: 40, objectFit: 'cover', border: '1px solid #e2e8f0', borderRadius: 4 }} />}
-                        <TextField fullWidth size="small" placeholder={`Paste External Image URL #${idx + 1}`} value={img} onChange={e => {
-                          const updated = [...formData.images];
-                          updated[idx] = e.target.value;
-                          setFormData({ ...formData, images: updated });
-                        }} />
-                        <IconButton color="error" onClick={() => removeImageField(idx)}><DeleteIcon fontSize="small" /></IconButton>
-                      </Box>
-                    )
+                    <Box key={idx} sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'center' }}>
+                      {img && <img src={img} alt="preview" style={{ width: 40, height: 40, objectFit: 'cover', border: '1px solid #e2e8f0', borderRadius: 4 }} />}
+                      <TextField fullWidth size="small" placeholder={`Paste External Image URL #${idx + 1}`} value={img} onChange={e => {
+                        const updated = [...formData.images];
+                        updated[idx] = e.target.value;
+                        setFormData({ ...formData, images: updated });
+                      }} />
+                      <IconButton color="error" onClick={() => removeImageField(idx)}><DeleteIcon fontSize="small" /></IconButton>
+                    </Box>
                   ))}
                 </Grid>
               )}
@@ -1023,12 +1109,30 @@ export default function AdminProductsPage() {
           <IconButton onClick={() => setIsTagsModalOpen(false)} size="small"><Close /></IconButton>
         </DialogTitle>
         <DialogContent sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <Box>
+            <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1 }}>Saved Tags</Typography>
+            {savedCustomTags.length ? savedCustomTags.map(tag => (
+              <Paper key={tag.label} variant="outlined" sx={{ p: 1, mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Chip label={tag.label} size="small" sx={{ bgcolor: tag.bgColor, color: '#fff', fontWeight: 'bold' }} />
+                <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
+                  Used on {tag.productCount} {tag.productCount === 1 ? 'product' : 'products'}
+                </Typography>
+                <Button size="small" onClick={() => handleUseSavedCustomTag(tag)}>Add</Button>
+                <IconButton aria-label={`Edit ${tag.label}`} size="small" onClick={() => handleEditSavedCustomTag(tag)}><Edit fontSize="small" /></IconButton>
+                <IconButton aria-label={`Delete ${tag.label}`} color="error" size="small" onClick={() => handleDeleteSavedCustomTag(tag)}><Delete fontSize="small" /></IconButton>
+              </Paper>
+            )) : (
+              <Typography variant="body2" color="text.secondary">No saved tags yet.</Typography>
+            )}
+          </Box>
           <Paper variant="outlined" sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 2 }}>
-            <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 2 }}>{editingTagIndex !== null ? 'Edit Tag' : 'Add New Tag'}</Typography>
+            <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 2 }}>
+              {editingSavedTagLabel !== null ? `Edit Saved Tag: ${editingSavedTagLabel}` : editingTagIndex !== null ? 'Edit Tag' : 'Add New Tag'}
+            </Typography>
             <Grid container spacing={2} sx={{ alignItems: 'center' }}>
               <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth size="small" label="Tag Label" value={tagInputLabel} onChange={e => setTagInputLabel(e.target.value)} /></Grid>
               <Grid size={{ xs: 6, md: 3 }}><TextField fullWidth size="small" type="color" label="Color" value={tagInputBgColor} onChange={e => setTagInputBgColor(e.target.value)} slotProps={{ htmlInput: { sx: { height: 24, cursor: 'pointer' } } }} /></Grid>
-              <Grid size={{ xs: 6, md: 3 }}><Button fullWidth variant="contained" onClick={handleSaveCustomTag} sx={{ bgcolor: '#6600cc', height: 40 }}>{editingTagIndex !== null ? 'Update' : 'Add'}</Button></Grid>
+              <Grid size={{ xs: 6, md: 3 }}><Button fullWidth variant="contained" onClick={handleSaveCustomTag} sx={{ bgcolor: '#6600cc', height: 40 }}>{editingTagIndex !== null || editingSavedTagLabel !== null ? 'Update' : 'Add'}</Button></Grid>
             </Grid>
           </Paper>
         </DialogContent>
