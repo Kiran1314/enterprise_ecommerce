@@ -10,6 +10,7 @@ import Footer from '@/components/Footer';
 import { getProductPricing } from '@/lib/productPricing';
 import ProductCard from '@/components/ProductCard';
 import { useCart } from '@/components/Providers';
+import ProductBannerCarousel from '@/components/ProductBannerCarousel';
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -17,6 +18,7 @@ export default function ProductDetailPage() {
 
   const [product, setProduct] = useState(null);
   const [categories, setCategories] = useState([]);
+  const [relatedProductsState, setRelatedProductsState] = useState({ key: '', products: [], error: '' });
   const [currency, setCurrency] = useState('$');
   const [loading, setLoading] = useState(true);
 
@@ -26,11 +28,13 @@ export default function ProductDetailPage() {
   const [activeHighlightTab, setActiveHighlightTab] = useState(0);
   const [isAllDetailsExpanded, setIsAllDetailsExpanded] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showAllCategories, setShowAllCategories] = useState(false);
 
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
   const thumbnailScrollRef = useRef(null);
+  const relatedProductsScrollRef = useRef(null);
   const { addToCart } = useCart();
 
   useEffect(() => {
@@ -43,6 +47,7 @@ export default function ProductDetailPage() {
       if (prodData.success) {
         const p = prodData.data;
         setProduct(p);
+        setShowAllCategories(false);
         setSelectedFitment(null);
         const defaults = {};
         p.attributes?.forEach(attr => { defaults[attr.key] = attr.value || attr.options?.[0]?.label; });
@@ -53,6 +58,44 @@ export default function ProductDetailPage() {
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [slug]);
+
+  useEffect(() => {
+    if (!product) return undefined;
+
+    const controller = new AbortController();
+    const requestKey = JSON.stringify([
+      product.slug || slug,
+      product.categories || [],
+      selectedFitment?.make || '',
+      selectedFitment?.model || '',
+      selectedFitment?.year || ''
+    ]);
+    const query = new URLSearchParams({ slug: product.slug || slug });
+    [...new Set((product.categories || []).filter(Boolean))]
+      .forEach(category => query.append('category', category));
+    if (selectedFitment) {
+      query.set('make', selectedFitment.make);
+      query.set('model', selectedFitment.model);
+      query.set('year', selectedFitment.year);
+    }
+
+    fetch(`/api/products/related?${query}`, { signal: controller.signal })
+      .then(async response => {
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'Could not load related products.');
+        }
+        setRelatedProductsState({ key: requestKey, products: result.data, error: '' });
+      })
+      .catch(error => {
+        if (error.name !== 'AbortError') {
+          console.error('Error loading related products:', error);
+          setRelatedProductsState({ key: requestKey, products: [], error: 'Related products could not be loaded.' });
+        }
+      });
+
+    return () => controller.abort();
+  }, [product, selectedFitment, slug]);
 
   if (loading) return <Box sx={{ p: 8, textAlign: 'center' }}>Loading product details...</Box>;
   if (!product) return <Box sx={{ p: 8, textAlign: 'center' }}>Product not found.</Box>;
@@ -74,6 +117,19 @@ export default function ProductDetailPage() {
   const finalPrice = pricing.displayPrice;
   const hasVehicleFitments = product.fitments?.length > 0;
   const canAddToCart = !isQuoteOnly && (!hasVehicleFitments || (selectedFitment && Number(selectedFitment.stock) > 0));
+  const relatedProductsKey = JSON.stringify([
+    product.slug || slug,
+    product.categories || [],
+    selectedFitment?.make || '',
+    selectedFitment?.model || '',
+    selectedFitment?.year || ''
+  ]);
+  const hasRelatedProductCategories = (product.categories || []).some(Boolean);
+  const relatedProductsLoading = hasRelatedProductCategories && relatedProductsState.key !== relatedProductsKey;
+  const relatedProducts = relatedProductsState.key === relatedProductsKey ? relatedProductsState.products : [];
+  const relatedProductsError = relatedProductsState.key === relatedProductsKey ? relatedProductsState.error : '';
+  const productCategories = categories.filter(cat => product.categories?.includes(cat.name));
+  const otherCategories = categories.filter(cat => !product.categories?.includes(cat.name));
 
   const handleAddToCart = () => {
     if (!canAddToCart) return;
@@ -100,6 +156,19 @@ export default function ProductDetailPage() {
     }
   };
 
+  const scrollRelatedProducts = direction => {
+    const carousel = relatedProductsScrollRef.current;
+    const firstCard = carousel?.firstElementChild;
+    if (!carousel || !firstCard) return;
+
+    const styles = window.getComputedStyle(carousel);
+    const gap = Number.parseFloat(styles.columnGap || styles.gap) || 0;
+    carousel.scrollBy({
+      left: direction * (firstCard.getBoundingClientRect().width + gap),
+      behavior: 'smooth'
+    });
+  };
+
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'var(--auto-canvas)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
       <Box>
@@ -108,15 +177,14 @@ export default function ProductDetailPage() {
         <Container maxWidth={false} sx={{ py: 2, px: { xs: 1, sm: 2, md: 3 } }}>
           <Grid container spacing={2}>
             
-            <Grid size={{ xs: 12, md: 2.5 }}>
+            <Grid size={{ xs: 12, md: 2.5 }} sx={{ order: { xs: 2, md: 1 } }}>
               <Paper elevation={0} sx={{ p: 2, borderRadius: 1, bgcolor: '#fff', position: 'sticky', top: 76 }}>
                 <Typography variant="subtitle2" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, borderBottom: '1px solid #f0f0f0', pb: 1 }}>
                   <FilterList sx={{ color: 'var(--auto-red)', fontSize: 16 }} /> Filters
                 </Typography>
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="caption" fontWeight="bold" color="text.secondary" sx={{ mb: 1, display: 'block' }}>CATEGORIES</Typography>
-                  {categories.map(cat => {
-                    const isProductCategory = product.categories?.includes(cat.name);
+                  {productCategories.map(cat => {
                     return (
                       <Typography
                         key={cat._id}
@@ -127,22 +195,50 @@ export default function ProductDetailPage() {
                           py: 0.5,
                           mb: 0.25,
                           borderLeft: '3px solid',
-                          borderColor: isProductCategory ? '#BD5E22' : 'transparent',
+                          borderColor: '#BD5E22',
                           borderRadius: '0 4px 4px 0',
-                          bgcolor: isProductCategory ? 'rgba(189, 94, 34, 0.1)' : 'transparent',
-                          color: isProductCategory ? '#BD5E22' : 'text.secondary',
-                          fontWeight: isProductCategory ? 'bold' : 'normal'
+                          bgcolor: 'rgba(189, 94, 34, 0.1)',
+                          color: '#BD5E22',
+                          fontWeight: 'bold'
                         }}
                       >
                         {cat.name}
                       </Typography>
                     );
                   })}
+                  {productCategories.length === 0 && !showAllCategories && (
+                    <Typography variant="body2" color="text.secondary" sx={{ px: 1, py: 0.5 }}>
+                      No categories assigned to this product.
+                    </Typography>
+                  )}
+                  {otherCategories.length > 0 && (
+                    <>
+                      <Button
+                        size="small"
+                        onClick={() => setShowAllCategories(previous => !previous)}
+                        startIcon={showAllCategories ? <ExpandLess /> : <ExpandMore />}
+                        sx={{ mt: 0.5, display: { xs: 'inline-flex', md: 'none' }, textTransform: 'none' }}
+                      >
+                        {showAllCategories ? 'Hide other categories' : `Show all categories (${otherCategories.length})`}
+                      </Button>
+                      <Box sx={{ display: { xs: showAllCategories ? 'block' : 'none', md: 'block' } }}>
+                        {otherCategories.map(cat => (
+                          <Typography
+                            key={cat._id}
+                            variant="body2"
+                            sx={{ fontSize: '0.8rem', px: 1, py: 0.5, mb: 0.25, color: 'text.secondary' }}
+                          >
+                            {cat.name}
+                          </Typography>
+                        ))}
+                      </Box>
+                    </>
+                  )}
                 </Box>
               </Paper>
             </Grid>
 
-            <Grid size={{ xs: 12, md: 9.5 }}>
+            <Grid size={{ xs: 12, md: 9.5 }} sx={{ order: { xs: 1, md: 2 } }}>
               <Grid container spacing={2}>
                 
                 <Grid size={{ xs: 12, md: 6 }}>
@@ -259,14 +355,24 @@ export default function ProductDetailPage() {
                           }}
                         >
                           {product.fitments.map((fitment, index) => (
-                            <MenuItem key={`${fitment.make}-${fitment.model}-${fitment.year}-${index}`} value={`${fitment.make}|${fitment.model}|${fitment.year}`} disabled={Number(fitment.stock || 0) < 1}>
+                            <MenuItem
+                              key={`${fitment.make}-${fitment.model}-${fitment.year}-${index}`}
+                              value={`${fitment.make}|${fitment.model}|${fitment.year}`}
+                              disabled={Number(fitment.stock || 0) < 1}
+                            >
                               {fitment.make} · {fitment.model} · {fitment.year}
                             </MenuItem>
                           ))}
                         </TextField>
-                        {selectedFitment && <Typography variant="caption" color={Number(selectedFitment.stock || 0) > 0 ? 'success.main' : 'error'} sx={{ display: 'block', mt: 0.75 }}>
-                          {Number(selectedFitment.stock || 0) > 0 ? 'In stock' : 'Out of stock'}
-                        </Typography>}
+                        {selectedFitment && (
+                          <Typography
+                            variant="caption"
+                            color={Number(selectedFitment.stock || 0) > 0 ? 'success.main' : 'error'}
+                            sx={{ display: 'block', mt: 0.75 }}
+                          >
+                            {Number(selectedFitment.stock || 0) > 0 ? 'In stock' : 'Out of stock'}
+                          </Typography>
+                        )}
                       </Box>
                     )}
 
@@ -310,6 +416,97 @@ export default function ProductDetailPage() {
         </Container>
       </Box>
 
+      {hasRelatedProductCategories && (
+        <Container maxWidth="xl" sx={{ py: 3, px: { xs: 2, md: 4 } }}>
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="h5" fontWeight={800}>
+              {selectedFitment ? 'More for your vehicle' : 'Related products'}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {selectedFitment
+                ? `Matching ${selectedFitment.make} ${selectedFitment.model} ${selectedFitment.year} and related categories`
+                : 'More products from related categories'}
+            </Typography>
+          </Box>
+          {relatedProductsError ? (
+            <Typography role="alert" variant="body2" color="error">{relatedProductsError}</Typography>
+          ) : relatedProductsLoading ? (
+            <Typography variant="body2" color="text.secondary">Finding products for you…</Typography>
+          ) : relatedProducts.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">
+              No in-stock related products match this category and vehicle yet.
+            </Typography>
+          ) : (
+            <Box sx={{ position: 'relative' }}>
+              {relatedProducts.length > 1 && (
+                <>
+                  <IconButton
+                    aria-label="Scroll related products left"
+                    onClick={() => scrollRelatedProducts(-1)}
+                    sx={{
+                      position: 'absolute',
+                      left: { xs: 0, md: -20 },
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      zIndex: 1,
+                      bgcolor: '#fff',
+                      boxShadow: 2,
+                      '&:hover': { bgcolor: '#f8fafc' }
+                    }}
+                  >
+                    <ChevronLeft />
+                  </IconButton>
+                  <IconButton
+                    aria-label="Scroll related products right"
+                    onClick={() => scrollRelatedProducts(1)}
+                    sx={{
+                      position: 'absolute',
+                      right: { xs: 0, md: -20 },
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      zIndex: 1,
+                      bgcolor: '#fff',
+                      boxShadow: 2,
+                      '&:hover': { bgcolor: '#f8fafc' }
+                    }}
+                  >
+                    <ChevronRight />
+                  </IconButton>
+                </>
+              )}
+              <Box
+                ref={relatedProductsScrollRef}
+                aria-label="Related products"
+                sx={{
+                  display: 'flex',
+                  gap: 2,
+                  overflowX: 'auto',
+                  scrollBehavior: 'smooth',
+                  scrollSnapType: 'x mandatory',
+                  scrollbarWidth: 'none',
+                  '&::-webkit-scrollbar': { display: 'none' },
+                  px: { xs: 0.5, md: 0 },
+                  py: 1
+                }}
+              >
+                {relatedProducts.map(relatedProduct => (
+                  <Box
+                    key={relatedProduct._id}
+                    sx={{
+                      flex: { xs: '0 0 48%', sm: '0 0 31%', md: '0 0 24%' },
+                      minWidth: 0,
+                      scrollSnapAlign: 'start'
+                    }}
+                  >
+                    <ProductCard product={relatedProduct} />
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+          )}
+        </Container>
+      )}
+      <ProductBannerCarousel />
       <Footer />
     </Box>
   );

@@ -3,14 +3,16 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { 
   Box, Typography, Container, Grid, Paper, Divider,
-  FormControl, InputLabel, Select, MenuItem, Button
+  Autocomplete, Button, TextField
 } from '@mui/material';
-import { FilterList } from '@mui/icons-material';
+import { ExpandLess, ExpandMore, FilterList } from '@mui/icons-material';
 import { useParams } from 'next/navigation';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ProductCard from '@/components/ProductCard';
 import { getProductAvailableStock } from '@/lib/productAvailability';
+
+const slugify = value => String(value || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
 export default function SubcategoryPage() {
   const params = useParams();
@@ -28,6 +30,8 @@ export default function SubcategoryPage() {
   const [selectedMake, setSelectedMake] = useState('');
   const [selectedModel, setSelectedModel] = useState('');
   const [selectedYear, setSelectedYear] = useState('');
+  const [mobileVehicleFilterOpen, setMobileVehicleFilterOpen] = useState(true);
+  const [mobileCategoryFilterOpen, setMobileCategoryFilterOpen] = useState(false);
 
   useEffect(() => {
     if (!slug) return;
@@ -38,7 +42,6 @@ export default function SubcategoryPage() {
       if (catData.success) {
         const allCategories = Array.isArray(catData.data) ? catData.data : [];
         setCategories(allCategories);
-        const slugify = value => String(value || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
         const matchedCategory = allCategories.find(category =>
           slugify(category.slug || category.name) === slug
         ) || null;
@@ -55,58 +58,70 @@ export default function SubcategoryPage() {
     }).catch(() => setLoading(false));
   }, [slug]);
 
-  // Extract unique fitment data for filter dropdowns
+  const categoryProducts = useMemo(() => {
+    const targetNames = currentSubcategory
+      ? [currentSubcategory.name, currentSubcategory.slug]
+      : [currentCategory?.name, currentCategory?.slug];
+    const normalizedTargets = targetNames
+      .filter(Boolean)
+      .flatMap(value => [String(value).trim().toLowerCase(), slugify(value)]);
+
+    return products.filter(product => {
+      if (getProductAvailableStock(product) <= 0 || normalizedTargets.length === 0) return false;
+      const productCategoryValues = (Array.isArray(product.categories) ? product.categories : [])
+        .map(value => String(value || '').trim().toLowerCase());
+      return productCategoryValues.some(value =>
+        normalizedTargets.includes(value) || normalizedTargets.includes(slugify(value))
+      );
+    });
+  }, [products, currentCategory, currentSubcategory]);
+
+  // Extract unique fitment data only from available products in this category.
   const availableMakes = useMemo(() => {
-    const makes = products.flatMap(p => p.fitments?.map(f => f.make) || []);
+    const makes = categoryProducts.flatMap(product =>
+      product.fitments?.filter(fitment => Number(fitment.stock) > 0).map(fitment => fitment.make) || []
+    );
     return [...new Set(makes.filter(Boolean))].sort();
-  }, [products]);
+  }, [categoryProducts]);
 
   const availableModels = useMemo(() => {
     if (!selectedMake) return [];
-    const models = products.flatMap(p => 
-      p.fitments?.filter(f => f.make === selectedMake).map(f => f.model) || []
+    const models = categoryProducts.flatMap(product =>
+      product.fitments?.filter(fitment => fitment.make === selectedMake && Number(fitment.stock) > 0).map(fitment => fitment.model) || []
     );
     return [...new Set(models.filter(Boolean))].sort();
-  }, [products, selectedMake]);
+  }, [categoryProducts, selectedMake]);
 
   const availableYears = useMemo(() => {
     if (!selectedModel) return [];
-    const years = products.flatMap(p => 
-      p.fitments?.filter(f => f.make === selectedMake && f.model === selectedModel).map(f => f.year) || []
+    const years = categoryProducts.flatMap(product =>
+      product.fitments?.filter(fitment =>
+        fitment.make === selectedMake &&
+        fitment.model === selectedModel &&
+        Number(fitment.stock) > 0
+      ).map(fitment => fitment.year) || []
     );
     return [...new Set(years.filter(Boolean))].sort();
-  }, [products, selectedMake, selectedModel]);
+  }, [categoryProducts, selectedMake, selectedModel]);
 
-  const handleMakeChange = (e) => {
-    setSelectedMake(e.target.value);
+  const handleMakeChange = make => {
+    setSelectedMake(make);
     setSelectedModel('');
     setSelectedYear('');
   };
 
-  const handleModelChange = (e) => {
-    setSelectedModel(e.target.value);
+  const handleModelChange = model => {
+    setSelectedModel(model);
     setSelectedYear('');
   };
 
-  const filteredProducts = products.filter(p => {
-    const slugify = value => String(value || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    const productCategoryValues = (Array.isArray(p.categories) ? p.categories : [])
-      .map(value => String(value || '').trim().toLowerCase());
-    const targetNames = currentSubcategory
-      ? [currentSubcategory.name, currentSubcategory.slug]
-      : [currentCategory?.name, currentCategory?.slug];
-    const normalizedTargets = targetNames.filter(Boolean).flatMap(value => [String(value).trim().toLowerCase(), slugify(value)]);
-    // Match only the category represented by this URL. Do not fall back to all products
-    // when a category slug cannot be resolved.
-    const matchesSub = normalizedTargets.length > 0 && productCategoryValues.some(value =>
-      normalizedTargets.includes(value) || normalizedTargets.includes(slugify(value))
-    );
-    const matchesSearch = searchQuery ? String(p.title || '').toLowerCase().includes(searchQuery.toLowerCase()) : true;
+  const filteredProducts = categoryProducts.filter(product => {
+    const matchesSearch = searchQuery ? String(product.title || '').toLowerCase().includes(searchQuery.toLowerCase()) : true;
     
     // Vehicle fitment filter logic
     let matchesVehicle = true;
     if (selectedMake || selectedModel || selectedYear) {
-      const fitments = p.fitments || [];
+      const fitments = product.fitments || [];
       matchesVehicle = fitments.some(f => {
         const makeMatch = selectedMake ? f.make === selectedMake : true;
         const modelMatch = selectedModel ? f.model === selectedModel : true;
@@ -115,12 +130,76 @@ export default function SubcategoryPage() {
       });
     }
 
-    return getProductAvailableStock(p) > 0 && matchesSub && matchesSearch && matchesVehicle;
+    return matchesSearch && matchesVehicle;
   });
 
   if (loading) return <Box sx={{ p: 8, textAlign: 'center' }}>Loading category products...</Box>;
 
   const pageTitle = currentSubcategory?.name || currentCategory?.name || slug.replace(/-/g, ' ');
+  const selectedBrowseCategory = categories.find(category => category._id === currentCategory?._id);
+  const renderCategoryLinks = categoryList => categoryList.map(category => {
+    const isActive = category._id === currentCategory?._id && !currentSubcategory;
+    return (
+      <Button
+        key={category._id}
+        component={Link}
+        href={`/categories/${category.slug || String(category.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
+        fullWidth
+        size="small"
+        sx={{ justifyContent: 'flex-start', textAlign: 'left', textTransform: 'none', color: isActive ? 'var(--auto-red)' : 'text.primary', fontWeight: isActive ? 800 : 500, backgroundColor: isActive ? '#fff4f4' : 'transparent', '&:hover': { backgroundColor: '#fff4f4' } }}
+      >
+        {category.name}
+      </Button>
+    );
+  });
+  const categoryLinks = renderCategoryLinks(categories);
+  const otherCategoryLinks = renderCategoryLinks(
+    categories.filter(category => category._id !== selectedBrowseCategory?._id)
+  );
+  const vehicleFilterControls = (
+    <>
+      <Autocomplete
+        options={availableMakes}
+        value={selectedMake || null}
+        onChange={(event, value) => handleMakeChange(value || '')}
+        renderInput={params => <TextField {...params} label="Make" placeholder="Search makes" size="small" />}
+        isOptionEqualToValue={(option, value) => option === value}
+        sx={{ mb: 2 }}
+      />
+
+      <Autocomplete
+        options={availableModels}
+        value={selectedModel || null}
+        onChange={(event, value) => handleModelChange(value || '')}
+        renderInput={params => <TextField {...params} label="Model" placeholder="Search models" size="small" />}
+        isOptionEqualToValue={(option, value) => option === value}
+        disabled={!selectedMake}
+        sx={{ mb: 2 }}
+      />
+
+      <Autocomplete
+        options={availableYears}
+        value={selectedYear || null}
+        onChange={(event, value) => setSelectedYear(value || '')}
+        renderInput={params => <TextField {...params} label="Year" placeholder="Search years" size="small" />}
+        isOptionEqualToValue={(option, value) => option === value}
+        disabled={!selectedModel}
+        sx={{ mb: 2 }}
+      />
+
+      {(selectedMake || selectedModel || selectedYear) && (
+        <Button
+          fullWidth
+          variant="outlined"
+          size="small"
+          onClick={() => { setSelectedMake(''); setSelectedModel(''); setSelectedYear(''); }}
+          sx={{ color: 'var(--auto-red)', borderColor: 'var(--auto-red)', '&:hover': { borderColor: 'var(--auto-red)', backgroundColor: '#fff5f5' } }}
+        >
+          Clear Vehicle Filters
+        </Button>
+      )}
+    </>
+  );
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'var(--auto-canvas)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
@@ -128,9 +207,26 @@ export default function SubcategoryPage() {
         <Header categories={categories} searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
 
         <Container maxWidth={false} sx={{ py: 3, px: { xs: 1, sm: 2, md: 3 } }}>
+          <Paper elevation={0} sx={{ display: { xs: 'block', md: 'none' }, p: 1.5, mb: 2, borderRadius: 1, bgcolor: '#fff' }}>
+            <Button
+              fullWidth
+              onClick={() => setMobileVehicleFilterOpen(previous => !previous)}
+              startIcon={<FilterList sx={{ color: 'var(--auto-red)' }} />}
+              endIcon={mobileVehicleFilterOpen ? <ExpandLess /> : <ExpandMore />}
+              aria-controls="mobile-vehicle-filter-options"
+              aria-expanded={mobileVehicleFilterOpen}
+              sx={{ justifyContent: 'space-between', textTransform: 'none', fontWeight: 'bold', color: 'text.primary' }}
+            >
+              VEHICLE COMPATIBILITY
+            </Button>
+            <Box id="mobile-vehicle-filter-options" sx={{ display: mobileVehicleFilterOpen ? 'block' : 'none', pt: 1.5 }}>
+              {vehicleFilterControls}
+            </Box>
+          </Paper>
+
           <Grid container spacing={2}>
             {/* Left Filter Sidebar */}
-            <Grid size={{ xs: 12, md: 3 }}>
+            <Grid size={{ xs: 12, md: 3 }} sx={{ display: { xs: 'none', md: 'block' } }}>
               <Paper elevation={0} sx={{ p: 2.5, borderRadius: 1, bgcolor: '#fff', position: 'sticky', top: 88, alignSelf: 'flex-start', height: 'calc(100vh - 104px)', maxHeight: 'calc(100vh - 104px)', minHeight: 320, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 <Typography variant="subtitle1" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, borderBottom: '1px solid #f0f0f0', pb: 1 }}>
                   <FilterList sx={{ color: 'var(--auto-red)', fontSize: 20 }} /> Categories
@@ -140,21 +236,7 @@ export default function SubcategoryPage() {
                 <Box sx={{ mb: 2, flex: '0 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
                   <Typography variant="caption" fontWeight="bold" color="text.secondary" sx={{ mb: 1.25, display: 'block', flexShrink: 0 }}>BROWSE CATEGORIES</Typography>
                   <Box sx={{ display: 'grid', gap: 0.5, overflowY: 'auto', overscrollBehavior: 'contain', pr: 0.5, minHeight: 100, maxHeight: '34vh', scrollbarWidth: 'thin', '&::-webkit-scrollbar': { width: 6 }, '&::-webkit-scrollbar-thumb': { backgroundColor: '#cbd5e1', borderRadius: 6 } }}>
-                    {categories.map(category => {
-                      const isActive = category._id === currentCategory?._id && !currentSubcategory;
-                      return (
-                        <Button
-                          key={category._id}
-                          component={Link}
-                          href={`/categories/${category.slug || String(category.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
-                          fullWidth
-                          size="small"
-                          sx={{ justifyContent: 'flex-start', textAlign: 'left', textTransform: 'none', color: isActive ? 'var(--auto-red)' : 'text.primary', fontWeight: isActive ? 800 : 500, backgroundColor: isActive ? '#fff4f4' : 'transparent', '&:hover': { backgroundColor: '#fff4f4' } }}
-                        >
-                          {category.name}
-                        </Button>
-                      );
-                    })}
+                    {categoryLinks}
                   </Box>
                 </Box>
                 <Divider sx={{ my: 2 }} />
@@ -162,42 +244,7 @@ export default function SubcategoryPage() {
                 {/* Vehicle Filter Section */}
                 <Box sx={{ mb: 1, flex: '0 0 auto', minHeight: 0 }}>
                   <Typography variant="caption" fontWeight="bold" color="text.secondary" sx={{ mb: 1.5, display: 'block' }}>VEHICLE COMPATIBILITY</Typography>
-                  
-                  <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-                    <InputLabel>Make</InputLabel>
-                    <Select value={selectedMake} label="Make" onChange={handleMakeChange}>
-                      <MenuItem value=""><em>All Makes</em></MenuItem>
-                      {availableMakes.map(make => <MenuItem key={make} value={make}>{make}</MenuItem>)}
-                    </Select>
-                  </FormControl>
-
-                  <FormControl fullWidth size="small" sx={{ mb: 2 }} disabled={!selectedMake}>
-                    <InputLabel>Model</InputLabel>
-                    <Select value={selectedModel} label="Model" onChange={handleModelChange}>
-                      <MenuItem value=""><em>All Models</em></MenuItem>
-                      {availableModels.map(model => <MenuItem key={model} value={model}>{model}</MenuItem>)}
-                    </Select>
-                  </FormControl>
-
-                  <FormControl fullWidth size="small" sx={{ mb: 2 }} disabled={!selectedModel}>
-                    <InputLabel>Year</InputLabel>
-                    <Select value={selectedYear} label="Year" onChange={(e) => setSelectedYear(e.target.value)}>
-                      <MenuItem value=""><em>All Years</em></MenuItem>
-                      {availableYears.map(year => <MenuItem key={year} value={year}>{year}</MenuItem>)}
-                    </Select>
-                  </FormControl>
-
-                  {(selectedMake || selectedModel || selectedYear) && (
-                    <Button 
-                      fullWidth 
-                      variant="outlined" 
-                      size="small" 
-                      onClick={() => { setSelectedMake(''); setSelectedModel(''); setSelectedYear(''); }}
-                      sx={{ color: 'var(--auto-red)', borderColor: 'var(--auto-red)', '&:hover': { borderColor: 'var(--auto-red)', backgroundColor: '#fff5f5' } }}
-                    >
-                      Clear Vehicle Filters
-                    </Button>
-                  )}
+                  {vehicleFilterControls}
                 </Box>
                 
                 <Divider sx={{ my: 2 }} />
@@ -229,6 +276,37 @@ export default function SubcategoryPage() {
               </Paper>
             </Grid>
           </Grid>
+
+          <Paper elevation={0} sx={{ display: { xs: 'block', md: 'none' }, mt: 2, p: 1.5, borderRadius: 1, bgcolor: '#fff' }}>
+            <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1 }}>
+              CATEGORIES
+            </Typography>
+            {selectedBrowseCategory && (
+              <Button
+                component={Link}
+                href={`/categories/${selectedBrowseCategory.slug || String(selectedBrowseCategory.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
+                fullWidth
+                size="small"
+                sx={{ justifyContent: 'flex-start', textAlign: 'left', textTransform: 'none', color: 'var(--auto-red)', fontWeight: 800, backgroundColor: '#fff4f4' }}
+              >
+                {currentSubcategory ? `${selectedBrowseCategory.name} / ${currentSubcategory.name}` : selectedBrowseCategory.name}
+              </Button>
+            )}
+            <Button
+              fullWidth
+              size="small"
+              onClick={() => setMobileCategoryFilterOpen(previous => !previous)}
+              endIcon={mobileCategoryFilterOpen ? <ExpandLess /> : <ExpandMore />}
+              aria-controls="mobile-other-category-links"
+              aria-expanded={mobileCategoryFilterOpen}
+              sx={{ justifyContent: 'space-between', mt: 0.5, textTransform: 'none' }}
+            >
+              {mobileCategoryFilterOpen ? 'Hide other categories' : 'Browse other categories'}
+            </Button>
+            <Box id="mobile-other-category-links" sx={{ display: mobileCategoryFilterOpen ? 'grid' : 'none', gap: 0.5, mt: 0.5, maxHeight: '35vh', overflowY: 'auto' }}>
+              {otherCategoryLinks}
+            </Box>
+          </Paper>
         </Container>
       </Box>
 
