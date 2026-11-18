@@ -90,6 +90,45 @@ export async function PUT(request, { params }) {
   }
 }
 
+export async function PATCH(request, { params }) {
+  try {
+    const admin = await getAdmin(request);
+    if (!admin) return NextResponse.json({ success: false, error: 'Admin sign-in required.' }, { status: 401 });
+    await dbConnect();
+    const { id } = await params;
+    const body = await request.json();
+    if (!body || !Object.prototype.hasOwnProperty.call(body, 'sortOrder')) {
+      return NextResponse.json({ success: false, error: 'Sort order is required.' }, { status: 400 });
+    }
+    const rawSortOrder = body?.sortOrder;
+    const sortOrder = rawSortOrder === '' || rawSortOrder === null || rawSortOrder === undefined
+      ? null
+      : Number(rawSortOrder);
+
+    if (sortOrder !== null && (
+      !['number', 'string'].includes(typeof rawSortOrder) ||
+      !Number.isInteger(sortOrder) ||
+      sortOrder < 1
+    )) {
+      return NextResponse.json({ success: false, error: 'Sort order must be a whole number greater than zero.' }, { status: 400 });
+    }
+
+    const category = await Category.findById(id);
+    if (!category) {
+      return NextResponse.json({ success: false, error: 'Category not found' }, { status: 404 });
+    }
+
+    category.sortOrder = sortOrder;
+    await category.save();
+    await recordActivity({ actor: admin, actorType: 'Admin', action: 'updated', entityType: 'Category', entityId: category._id, description: `${admin.name} changed the display order for category ${category.name}.` });
+
+    return NextResponse.json({ success: true, data: category }, { status: 200 });
+  } catch (error) {
+    console.error('Error updating category sort order:', error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}
+
 export async function DELETE(request, { params }) {
   try {
     const admin = await getAdmin(request);

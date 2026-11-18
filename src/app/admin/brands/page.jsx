@@ -37,6 +37,9 @@ export default function AdminBrandsCategoriesPage() {
   const [categoryImageInputMode, setCategoryImageInputMode] = useState('upload'); // 'upload' | 'url'
   const [categoryImageUrls, setCategoryImageUrls] = useState('');
   const [categorySortMode, setCategorySortMode] = useState('recent');
+  const [categoryOrderDrafts, setCategoryOrderDrafts] = useState({});
+  const [savingCategoryOrderId, setSavingCategoryOrderId] = useState('');
+  const [categoryOrderError, setCategoryOrderError] = useState('');
 
   const fetchData = () => {
     setLoading(true);
@@ -89,9 +92,63 @@ export default function AdminBrandsCategoriesPage() {
 
   const filteredData = useMemo(() => {
     if (tabValue === 0) return brands.filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()));
-    if (tabValue === 1) return categories.filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    if (tabValue === 1) {
+      const filtered = categories.filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()));
+      if (categorySortMode === 'alphabetical') {
+        return filtered.sort((a, b) => a.name.localeCompare(b.name));
+      }
+      if (categorySortMode === 'custom') {
+        return filtered.sort((a, b) => {
+          const aOrder = Number.isFinite(Number(a.sortOrder)) && a.sortOrder !== null && a.sortOrder !== ''
+            ? Number(a.sortOrder) : Number.MAX_SAFE_INTEGER;
+          const bOrder = Number.isFinite(Number(b.sortOrder)) && b.sortOrder !== null && b.sortOrder !== ''
+            ? Number(b.sortOrder) : Number.MAX_SAFE_INTEGER;
+          return aOrder - bOrder || new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+        });
+      }
+      return filtered.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    }
     return subcategoriesFlatList.filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()));
-  }, [tabValue, brands, categories, subcategoriesFlatList, searchTerm]);
+  }, [tabValue, brands, categories, subcategoriesFlatList, searchTerm, categorySortMode]);
+
+  const saveCategoryOrder = async item => {
+    const rawOrder = categoryOrderDrafts[item._id] ?? '';
+    const sortOrder = rawOrder === '' ? null : Number(rawOrder);
+    if (sortOrder !== null && (!Number.isInteger(sortOrder) || sortOrder < 1)) {
+      setCategoryOrderError('Category order must be a whole number greater than zero.');
+      return;
+    }
+    if (sortOrder === (item.sortOrder ?? null)) {
+      setCategoryOrderDrafts(previous => {
+        const next = { ...previous };
+        delete next[item._id];
+        return next;
+      });
+      return;
+    }
+
+    setSavingCategoryOrderId(item._id);
+    setCategoryOrderError('');
+    try {
+      const response = await fetch(`/api/categories/${item._id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sortOrder })
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.error || 'Could not save category order.');
+      setCategories(previous => previous.map(category => category._id === item._id ? result.data : category));
+      setCategoryOrderDrafts(previous => {
+        const next = { ...previous };
+        delete next[item._id];
+        return next;
+      });
+    } catch (error) {
+      setCategoryOrderError(error.message || 'Could not save category order.');
+    } finally {
+      setSavingCategoryOrderId('');
+    }
+  };
 
   const paginatedData = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
@@ -287,14 +344,19 @@ export default function AdminBrandsCategoriesPage() {
       </Paper>
 
       {tabValue === 1 && (
-        <FormControl size="small" sx={{ mb: 2, minWidth: 260 }}>
-          <InputLabel id="category-sort-mode-label">Frontend category sorting</InputLabel>
-          <Select labelId="category-sort-mode-label" label="Frontend category sorting" value={categorySortMode} onChange={event => saveCategorySortMode(event.target.value)}>
-            <MenuItem value="recent">Recently added (default)</MenuItem>
-            <MenuItem value="custom">Custom display order</MenuItem>
-            <MenuItem value="alphabetical">Alphabetically (A–Z)</MenuItem>
-          </Select>
-        </FormControl>
+        <Box sx={{ mb: 2 }}>
+          <FormControl size="small" sx={{ minWidth: 260 }}>
+            <InputLabel id="category-sort-mode-label">Frontend category sorting</InputLabel>
+            <Select labelId="category-sort-mode-label" label="Frontend category sorting" value={categorySortMode} onChange={event => saveCategorySortMode(event.target.value)}>
+              <MenuItem value="recent">Recently added (default)</MenuItem>
+              <MenuItem value="custom">Custom display order</MenuItem>
+              <MenuItem value="alphabetical">Alphabetically (A–Z)</MenuItem>
+            </Select>
+          </FormControl>
+          <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>
+            Select Custom display order to use the category numbers on the homepage. Lower numbers appear first; changes save when you leave an order field.
+          </Typography>
+        </Box>
       )}
 
       <TextField
@@ -313,6 +375,7 @@ export default function AdminBrandsCategoriesPage() {
             <TableRow>
               <TableCell sx={{ fontWeight: 'bold', fontSize: '0.75rem' }}>ICON</TableCell>
               <TableCell sx={{ fontWeight: 'bold', fontSize: '0.75rem' }}>NAME</TableCell>
+              {tabValue === 1 && <TableCell sx={{ fontWeight: 'bold', fontSize: '0.75rem' }}>CUSTOM ORDER</TableCell>}
               {tabValue === 2 && <TableCell sx={{ fontWeight: 'bold', fontSize: '0.75rem' }}>PARENT</TableCell>}
               <TableCell sx={{ fontWeight: 'bold', fontSize: '0.75rem' }}>ATTRIBUTES</TableCell>
               <TableCell align="right" sx={{ fontWeight: 'bold', fontSize: '0.75rem' }}>ACTIONS</TableCell>
@@ -323,6 +386,20 @@ export default function AdminBrandsCategoriesPage() {
               <TableRow key={item._id} hover>
                 <TableCell><img src={item.images?.[0] || item.icon || item.logo || 'https://img.icons8.com/ios-filled/50/6600cc/shopping-bag.png'} alt="" style={{ width: 36, height: 36, objectFit: 'contain' }} /></TableCell>
                 <TableCell><Typography variant="subtitle2" fontWeight="bold">{tabValue === 2 && <SubdirectoryArrowRight fontSize="small" sx={{ mr: 1, color: '#BD5E22' }} />} {item.name}</Typography></TableCell>
+                {tabValue === 1 && (
+                  <TableCell sx={{ width: 150 }}>
+                    <TextField
+                      size="small"
+                      type="number"
+                      value={categoryOrderDrafts[item._id] ?? item.sortOrder ?? ''}
+                      onChange={event => setCategoryOrderDrafts(previous => ({ ...previous, [item._id]: event.target.value }))}
+                      onBlur={() => saveCategoryOrder(item)}
+                      disabled={savingCategoryOrderId === item._id}
+                      placeholder="Not set"
+                      slotProps={{ htmlInput: { min: 1, step: 1, 'aria-label': `Sort order for ${item.name}` } }}
+                    />
+                  </TableCell>
+                )}
                 {tabValue === 2 && <TableCell><span style={{ background: '#f3e8ff', color: '#6b21a8', padding: '2px 8px', borderRadius: 4, fontSize: '0.75rem', fontWeight: 600 }}>{item.parentCategoryName}</span></TableCell>}
                 <TableCell>
                   {(item.attributes || item.inheritedAttributes)?.map((attr, idx) => {
@@ -344,6 +421,7 @@ export default function AdminBrandsCategoriesPage() {
           </TableBody>
         </Table>
       </TableContainer>
+      {categoryOrderError && tabValue === 1 && <Alert severity="error" sx={{ mt: 2 }}>{categoryOrderError}</Alert>}
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, mb: 3 }}>
         <Typography variant="body2" color="text.secondary">
