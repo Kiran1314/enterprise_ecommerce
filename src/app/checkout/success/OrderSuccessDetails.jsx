@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Alert, Box, Button, Container, Divider, Paper, Typography } from '@mui/material';
+import PageLoader from '@/components/PageLoader';
 
 export default function OrderSuccessDetails({ orderId, token, paypalOrderId, payment }) {
   const [order, setOrder] = useState(null);
@@ -42,7 +43,7 @@ export default function OrderSuccessDetails({ orderId, token, paypalOrderId, pay
   }, [orderId, token, paypalOrderId, payment]);
 
   if (!order) return <Container maxWidth="md" sx={{ py: 8 }}>
-    {error ? <Alert severity="error">{error}</Alert> : <Typography>Loading your order details...</Typography>}
+    {error ? <Alert severity="error">{error}</Alert> : <PageLoader title="Loading your order details..." minHeight={240} compact />}
   </Container>;
 
   const estimatedDelivery = new Date(order.createdAt);

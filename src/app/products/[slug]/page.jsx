@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import { 
   Box, Typography, Button, Container, Grid, Paper, IconButton, TextField, Collapse, Divider, Dialog, MenuItem
 } from '@mui/material';
@@ -8,9 +9,15 @@ import { useParams } from 'next/navigation';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { getProductPricing } from '@/lib/productPricing';
-import ProductCard from '@/components/ProductCard';
 import { useCart } from '@/components/Providers';
-import ProductBannerCarousel from '@/components/ProductBannerCarousel';
+import PageLoader from '@/components/PageLoader';
+
+const ProductCard = dynamic(() => import('@/components/ProductCard'), {
+  loading: () => <Box sx={{ minHeight: 320, bgcolor: '#f8fafc', borderRadius: 1 }} />,
+});
+const ProductBannerCarousel = dynamic(() => import('@/components/ProductBannerCarousel'), {
+  loading: () => <Box aria-hidden="true" sx={{ minHeight: { xs: 120, md: 180 } }} />,
+});
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -21,6 +28,8 @@ export default function ProductDetailPage() {
   const [relatedProductsState, setRelatedProductsState] = useState({ key: '', products: [], error: '' });
   const [currency, setCurrency] = useState('$');
   const [loading, setLoading] = useState(true);
+  const [loadedSlug, setLoadedSlug] = useState('');
+  const [productLoadError, setProductLoadError] = useState('');
 
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedAttributes, setSelectedAttributes] = useState({});
@@ -39,12 +48,18 @@ export default function ProductDetailPage() {
 
   useEffect(() => {
     if (!slug) return;
-    Promise.all([
-      fetch(`/api/products/${slug}`).then(res => res.json()),
-      fetch('/api/categories').then(res => res.json()),
-      fetch('/api/settings').then(res => res.json())
-    ]).then(([prodData, catData, settingsData]) => {
-      if (prodData.success) {
+    let active = true;
+
+    fetch(`/api/products/${slug}`)
+      .then(async response => {
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'Product details could not be loaded.');
+        }
+        return result;
+      })
+      .then(prodData => {
+        if (!active) return;
         const p = prodData.data;
         setProduct(p);
         setShowAllCategories(false);
@@ -52,11 +67,41 @@ export default function ProductDetailPage() {
         const defaults = {};
         p.attributes?.forEach(attr => { defaults[attr.key] = attr.value || attr.options?.[0]?.label; });
         setSelectedAttributes(defaults);
-      }
-      if (catData.success) setCategories(catData.data);
-      if (settingsData.success && settingsData.data?.currencySymbol) setCurrency(settingsData.data.currencySymbol);
-      setLoading(false);
-    }).catch(() => setLoading(false));
+        setProductLoadError('');
+      })
+      .catch(error => {
+        if (!active) return;
+        console.error('Error fetching product details:', error);
+        setProduct(null);
+        setProductLoadError(error.message || 'Product details could not be loaded.');
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+          setLoadedSlug(slug);
+        }
+      });
+
+    Promise.all([
+      fetch('/api/categories').then(async response => {
+        const result = await response.json();
+        if (!response.ok || !result.success) throw new Error(result.error || 'Categories could not be loaded.');
+        return result;
+      }),
+      fetch('/api/settings').then(async response => {
+        const result = await response.json();
+        if (!response.ok || !result.success) throw new Error(result.error || 'Store settings could not be loaded.');
+        return result;
+      })
+    ]).then(([categoryResult, settingsResult]) => {
+      if (!active) return;
+      setCategories(categoryResult.data);
+      if (settingsResult.data?.currencySymbol) setCurrency(settingsResult.data.currencySymbol);
+    }).catch(error => {
+      if (active) console.error('Error fetching product page supporting data:', error);
+    });
+
+    return () => { active = false; };
   }, [slug]);
 
   useEffect(() => {
@@ -97,8 +142,8 @@ export default function ProductDetailPage() {
     return () => controller.abort();
   }, [product, selectedFitment, slug]);
 
-  if (loading) return <Box sx={{ p: 8, textAlign: 'center' }}>Loading product details...</Box>;
-  if (!product) return <Box sx={{ p: 8, textAlign: 'center' }}>Product not found.</Box>;
+  if (loading || loadedSlug !== slug) return <PageLoader title="Loading product details..." />;
+  if (!product) return <Box role="alert" sx={{ p: 8, textAlign: 'center' }}>{productLoadError || 'Product not found.'}</Box>;
 
   // Determine active images based on selected color option variation images
   const colorAttr = product.attributes?.find(a => a.type === 'image' || a.key.toLowerCase().includes('color'));

@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Alert, Box, Button, FormControl, MenuItem, Paper, Select, Typography } from '@mui/material';
+import PageLoader from '@/components/PageLoader';
 
 export default function AdminOrderDetailPage() {
   const { id } = useParams();
@@ -24,7 +25,7 @@ export default function AdminOrderDetailPage() {
     else setOrder(result.data);
   };
 
-  if (!order) return <Box sx={{ p: 3 }}>{error || 'Loading order...'}</Box>;
+  if (!order) return error ? <Alert severity="error" sx={{ m: 3 }}>{error}</Alert> : <PageLoader title="Loading order..." />;
 
   return (
     <Box>

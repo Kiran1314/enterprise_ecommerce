@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Accordion, AccordionDetails, AccordionSummary, Alert, Box, Button, Container, Grid, IconButton, Paper, TextField, Typography } from '@mui/material';
 import { Add, Delete, ExpandMore } from '@mui/icons-material';
+import PageLoader from '@/components/PageLoader';
 
 const newAddress = () => ({ label: 'Home', name: '', phone: '', line1: '', line2: '', city: '', region: '', postalCode: '', country: 'United Arab Emirates', isDefault: false });
 
@@ -40,7 +41,7 @@ export default function AccountPage() {
     setMessage('Profile saved.');
   };
 
-  if (!profile) return <Container sx={{ py: 8 }}>Loading account...</Container>;
+  if (!profile) return <PageLoader title="Loading account..." />;
 
   return (
     <Container maxWidth="md" sx={{ py: { xs: 3, md: 6 } }}>

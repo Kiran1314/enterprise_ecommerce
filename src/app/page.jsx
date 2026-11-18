@@ -3,12 +3,13 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { 
   Box, Typography, Button, Container, Grid, Paper, IconButton, Menu, MenuItem,
-  FormControl, InputLabel, Select, Rating, Avatar, Alert, Tooltip, CircularProgress, Fade
+  FormControl, InputLabel, Select, Rating, Avatar, Alert, Tooltip, Fade
 } from '@mui/material';
 import { ChevronLeft, ChevronRight, KeyboardArrowDown, Settings } from '@mui/icons-material';
 import Link from 'next/link';
 import Header from '@/components/Header';
 import { getProductAvailableStock } from '@/lib/productAvailability';
+import PageLoader from '@/components/PageLoader';
 
 // Dynamic Imports for Code Splitting
 const ProductCard = dynamic(() => import('@/components/ProductCard'), { 
@@ -598,10 +599,7 @@ export default function HomePage() {
               )}
 
               {loading ? (
-                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 8 }}>
-                  <CircularProgress sx={{ color: 'var(--auto-red)', mb: 2 }} />
-                  <Typography color="text.secondary">Loading catalog...</Typography>
-                </Box>
+                <PageLoader title="Loading catalog..." description="" minHeight={240} compact />
               ) : filteredProducts.length === 0 ? (
                 <Box sx={{ p: 6, textAlign: 'center' }}>
                   <Typography variant="h6" fontWeight="bold" gutterBottom>{fitmentProducts ? 'No parts found for this vehicle' : 'No products found'}</Typography>

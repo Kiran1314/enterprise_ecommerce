@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { useCart } from '@/components/Providers';
 import { useParams } from 'next/navigation';
 import ProductCard from '@/components/ProductCard';
+import PageLoader from '@/components/PageLoader';
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -73,7 +74,7 @@ export default function ProductDetailPage() {
     }).catch(() => setLoading(false));
   }, [slug]);
 
-  if (loading) return <Box sx={{ p: 8, textAlign: 'center' }}>Loading product details...</Box>;
+  if (loading) return <PageLoader title="Loading product details..." />;
   if (!product) return <Box sx={{ p: 8, textAlign: 'center' }}>Product not found.</Box>;
 
   const hasOffer = product.offerPrice && product.offerPrice < product.price;

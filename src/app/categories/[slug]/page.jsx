@@ -10,6 +10,7 @@ import { useParams } from 'next/navigation';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ProductCard from '@/components/ProductCard';
+import PageLoader from '@/components/PageLoader';
 import { getProductAvailableStock } from '@/lib/productAvailability';
 
 const slugify = value => String(value || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -21,6 +22,7 @@ export default function SubcategoryPage() {
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadedSlug, setLoadedSlug] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
   const [currentCategory, setCurrentCategory] = useState(null);
@@ -55,7 +57,11 @@ export default function SubcategoryPage() {
         setProducts(Array.isArray(prodData.data) ? prodData.data : []);
       }
       setLoading(false);
-    }).catch(() => setLoading(false));
+      setLoadedSlug(slug);
+    }).catch(() => {
+      setLoading(false);
+      setLoadedSlug(slug);
+    });
   }, [slug]);
 
   const categoryProducts = useMemo(() => {
@@ -133,7 +139,7 @@ export default function SubcategoryPage() {
     return matchesSearch && matchesVehicle;
   });
 
-  if (loading) return <Box sx={{ p: 8, textAlign: 'center' }}>Loading category products...</Box>;
+  if (loading || loadedSlug !== slug) return <PageLoader title="Loading category products..." />;
 
   const pageTitle = currentSubcategory?.name || currentCategory?.name || slug.replace(/-/g, ' ');
   const selectedBrowseCategory = categories.find(category => category._id === currentCategory?._id);

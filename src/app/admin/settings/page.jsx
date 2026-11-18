@@ -4,6 +4,7 @@ import {
   Box, Typography, Button, TextField, Paper, Grid, Alert, FormControl, InputLabel, Select, MenuItem, FormControlLabel, Switch, Checkbox
 } from '@mui/material';
 import { Settings as SettingsIcon, Save } from '@mui/icons-material';
+import PageLoader from '@/components/PageLoader';
 
 export default function AdminSettingsPage() {
   const [loading, setLoading] = useState(true);
@@ -69,7 +70,7 @@ export default function AdminSettingsPage() {
     {configured && <Grid size={{ xs: 12, md: 6 }}><FormControlLabel control={<Checkbox checked={clearSecrets.includes(field)} onChange={event => setSecretRemoval(field, event.target.checked)} />} label={`Remove saved ${label.toLowerCase()}`} /></Grid>}
   </>;
 
-  if (loading) return <Box sx={{ p: 4 }}>Loading settings...</Box>;
+  if (loading) return <PageLoader title="Loading settings..." />;
 
   return (
     <Box>

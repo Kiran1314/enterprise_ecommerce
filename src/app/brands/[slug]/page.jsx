@@ -9,6 +9,7 @@ import { FilterList } from '@mui/icons-material';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ProductCard from '@/components/ProductCard';
+import PageLoader from '@/components/PageLoader';
 import { getProductAvailableStock } from '@/lib/productAvailability';
 
 export default function BrandProductsPage() {
@@ -26,6 +27,7 @@ export default function BrandProductsPage() {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadedSlug, setLoadedSlug] = useState('');
   const [filterLoading, setFilterLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -52,10 +54,12 @@ export default function BrandProductsPage() {
       setCategories(categoryResult.success ? categoryResult.data.filter(category => usedCategories.has(category.name)) : []);
       setMakes(makeResult.success ? makeResult.data : []);
       setLoading(false);
+      setLoadedSlug(slug);
     }).catch(() => {
       if (active) {
         setError('Brand products could not be loaded. Please try again.');
         setLoading(false);
+        setLoadedSlug(slug);
       }
     });
     return () => { active = false; };
@@ -145,7 +149,7 @@ export default function BrandProductsPage() {
     });
   }, [fitmentProducts, products, searchQuery, selectedCategory, make, model, year]);
 
-  if (loading) return <Box sx={{ p: 8, textAlign: 'center' }}>Loading brand catalog...</Box>;
+  if (loading || loadedSlug !== slug) return <PageLoader title="Loading brand catalog..." />;
   if (!brand) return <Container sx={{ py: 8 }}><Alert severity="warning">This brand could not be found.</Alert><Button component={Link} href="/" sx={{ mt: 2 }}>Return to store</Button></Container>;
 
   return (
