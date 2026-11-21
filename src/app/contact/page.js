@@ -1,7 +1,9 @@
 'use client';
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import emailjs from '@emailjs/browser';
+import ReCAPTCHA from 'react-google-recaptcha';
 import { 
   Box, Container, Grid, Paper, Typography, TextField, Button, Alert, Divider, CircularProgress, Fade 
 } from '@mui/material';
@@ -9,27 +11,36 @@ import { LocationOn, Phone, Email, AccessTime, Send, ArrowBack } from '@mui/icon
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 
+const EMAILJS_SERVICE_ID = 'service_upmyuqr';
+const EMAILJS_TEMPLATE_ID = 'template_ho34ljt';
+const EMAILJS_PUBLIC_KEY = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY || '4tmYGx6CbVQf9ceI_';
+const RECAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || '6LfuBysuAAAAAG-TwFvkTLgFrjyqBeYtI4jTBRnz';
+const EMAILJS_TO_EMAIL = 'Saleemkhan02017@gmail.com';
+const EMAILJS_CC_EMAIL = 'superrfjapanweb@gmail.com';
+
 // 1. Separate the logic that uses useSearchParams() into its own component
 function ContactContent() {
   const searchParams = useSearchParams();
   const productParam = searchParams.get('product') || '';
   const skuParam = searchParams.get('sku') || '';
+  const recaptchaRef = useRef(null);
 
   const [settings, setSettings] = useState(null);
   const [formState, setFormState] = useState({
     name: '',
     email: '',
     phone: '',
-    subject: '',
-    message: ''
+    subject: productParam
+      ? `Inquiry for ${productParam}${skuParam ? ` (SKU: ${skuParam})` : ''}`
+      : '',
+    message: productParam
+      ? `Hello, I would like to inquire about the availability and pricing of ${productParam}${skuParam ? ` [SKU: ${skuParam}]` : ''}.`
+      : ''
   });
   const [submitting, setSubmitting] = useState(false);
   const [statusAlert, setStatusAlert] = useState(null);
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    setLoaded(true);
-  }, []);
+  const [captchaToken, setCaptchaToken] = useState('');
+  const loaded = true;
 
   useEffect(() => {
     fetch('/api/settings')
@@ -40,36 +51,50 @@ function ContactContent() {
       .catch(() => {});
   }, []);
 
-  // Pre-fill the form if navigating from a product's "Contact Us" button
-  useEffect(() => {
-    if (productParam) {
-      setFormState(prev => ({
-        ...prev,
-        subject: `Inquiry for ${productParam}${skuParam ? ` (SKU: ${skuParam})` : ''}`,
-        message: `Hello, I would like to inquire about the availability and pricing of ${productParam}${skuParam ? ` [SKU: ${skuParam}]` : ''}.`
-      }));
-    }
-  }, [productParam, skuParam]);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!captchaToken) {
+      setStatusAlert({ severity: 'warning', text: 'Please complete the "I\'m not a robot" verification before submitting.' });
+      return;
+    }
+
     setSubmitting(true);
     setStatusAlert(null);
 
     try {
-      const res = await fetch('/api/contact', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formState)
-      });
-      if (res.ok) {
-        setStatusAlert({ severity: 'success', text: 'Your inquiry has been sent! Our team will get back to you shortly.' });
-        setFormState({ name: '', email: '', phone: '', subject: '', message: '' });
-      } else {
-        setStatusAlert({ severity: 'success', text: 'Thank you for contacting us! We have recorded your message.' });
-      }
-    } catch {
-      setStatusAlert({ severity: 'success', text: 'Thank you for contacting us! We have recorded your message.' });
+      await emailjs.send(
+        EMAILJS_SERVICE_ID,
+        EMAILJS_TEMPLATE_ID,
+        {
+          from_name: formState.name,
+          name: formState.name,
+          user_name: formState.name,
+          from_email: formState.email,
+          email: formState.email,
+          user_email: formState.email,
+          to_email: EMAILJS_TO_EMAIL,
+          recipient_email: EMAILJS_TO_EMAIL,
+          cc_email: EMAILJS_CC_EMAIL,
+          reply_to: formState.email,
+          phone: formState.phone,
+          user_phone: formState.phone,
+          subject: formState.subject,
+          message: formState.message,
+          'g-recaptcha-response': captchaToken
+        },
+        { publicKey: EMAILJS_PUBLIC_KEY }
+      );
+
+      setStatusAlert({ severity: 'success', text: 'Your inquiry has been sent! Our team will get back to you shortly.' });
+      setFormState({ name: '', email: '', phone: '', subject: '', message: '' });
+      setCaptchaToken('');
+      recaptchaRef.current?.reset();
+    } catch (error) {
+      console.error('EmailJS submission failed:', error);
+      setStatusAlert({ severity: 'error', text: 'Sorry, your inquiry could not be sent. Please try again.' });
+      setCaptchaToken('');
+      recaptchaRef.current?.reset();
     } finally {
       setSubmitting(false);
     }
@@ -111,7 +136,7 @@ function ContactContent() {
               <Box>
                 <Typography variant="subtitle2" fontWeight="bold">Email Address</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {settings?.companyEmail || 'sales@superrfjapan.com'}
+                  {settings?.companyEmail || 'Saleemkhan02017@gmail.com'}
                 </Typography>
               </Box>
             </Box>
@@ -223,12 +248,24 @@ function ContactContent() {
               </Grid>
             </Grid>
 
+            <Fade in={loaded} timeout={1680}>
+              <Box>
+                <ReCAPTCHA
+                  ref={recaptchaRef}
+                  sitekey={RECAPTCHA_SITE_KEY}
+                  onChange={(token) => setCaptchaToken(token || '')}
+                  onExpired={() => setCaptchaToken('')}
+                  onErrored={() => setCaptchaToken('')}
+                />
+              </Box>
+            </Fade>
+
             <Fade in={loaded} timeout={1750}>
               <Button
                 type="submit"
                 variant="contained"
                 size="large"
-                disabled={submitting}
+                disabled={submitting || !captchaToken}
                 endIcon={<Send />}
                 sx={{ 
                   bgcolor: '#BD5E22', 
