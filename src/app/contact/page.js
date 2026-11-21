@@ -14,7 +14,7 @@ import Footer from '@/components/Footer';
 const EMAILJS_SERVICE_ID = 'service_upmyuqr';
 const EMAILJS_TEMPLATE_ID = 'template_ho34ljt';
 const EMAILJS_PUBLIC_KEY = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY || '4tmYGx6CbVQf9ceI_';
-const RECAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || '6LfuBysuAAAAAK-sLylWfN2SZGdVr5fbq2d-kr8a';
+const RECAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || '6LdBESsuAAAAAIsT-jHFOTgYgI-varZbnXdINr9m';
 const EMAILJS_TO_EMAIL = 'Saleemkhan02017@gmail.com';
 const EMAILJS_CC_EMAIL = 'superrfjapanweb@gmail.com';
 
