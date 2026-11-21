@@ -3,7 +3,7 @@ import { AppRouterCacheProvider } from '@mui/material-nextjs/v16-appRouter';
 import './globals.css';
 
 export const metadata = {
-  title: 'Super Japan | Premium Quality Parts',
+  title: 'SUPER RF JAPAN | Premium Quality Parts',
   description: 'Find premium quality automotive spare parts for your vehicle in the UAE.',
 };
 
