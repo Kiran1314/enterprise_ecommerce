@@ -82,6 +82,7 @@ export default async function ProductPage({ params }) {
     image: images,
     description: getProductDescription(product),
     sku: product.sku,
+    mpn: product.sku,
     brand: {
       '@type': 'Brand',
       name: product.brand?.name || 'Super RF Japan'
@@ -92,6 +93,7 @@ export default async function ProductPage({ params }) {
         url: productUrl,
         priceCurrency: settings?.currencyCode || 'USD',
         price: pricing.displayPrice,
+        itemCondition: 'https://schema.org/NewCondition',
         availability: getProductAvailableStock(product) > 0
           ? 'https://schema.org/InStock'
           : 'https://schema.org/OutOfStock'
