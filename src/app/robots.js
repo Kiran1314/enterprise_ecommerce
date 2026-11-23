@@ -5,7 +5,7 @@ export default function robots() {
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: ['/admin/', '/api/', '/account/', '/checkout/', '/signup/']
+      disallow: ['/admin/', '/api/', '/account/', '/cart/', '/checkout/', '/signup/']
     },
     sitemap: `${SITE_URL}/sitemap.xml`
   };

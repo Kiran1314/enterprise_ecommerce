@@ -21,11 +21,7 @@ export default async function sitemap() {
     Category.find({}).select('slug subcategories.slug updatedAt createdAt').lean(),
     Brand.find({}).select('slug updatedAt createdAt').lean(),
     Product.find({
-      isDemoData: { $ne: true },
-      $or: [
-        { 'fitments.0': { $exists: false }, stock: { $gt: 0 } },
-        { fitments: { $elemMatch: { stock: { $gt: 0 } } } }
-      ]
+      isDemoData: { $ne: true }
     }).select('slug updatedAt createdAt').lean()
   ]);
 
@@ -55,7 +51,16 @@ export default async function sitemap() {
     if (brand.slug) addCatalogUrl(`/brands/${encodeURIComponent(brand.slug)}`, brand);
   });
   products.forEach(product => {
-    if (product.slug) addCatalogUrl(`/products/${encodeURIComponent(product.slug)}`, product);
+    if (!product.slug) return;
+    const path = `/products/${encodeURIComponent(product.slug)}`;
+    if (seenPaths.has(path)) return;
+    seenPaths.add(path);
+    urls.push({
+      url: `${SITE_URL}${path}`,
+      lastModified: product.updatedAt || product.createdAt,
+      changeFrequency: 'weekly',
+      priority: 0.8
+    });
   });
 
   return urls;
