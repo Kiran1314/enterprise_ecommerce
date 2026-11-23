@@ -4,6 +4,7 @@ import dbConnect from '@/lib/dbConnect';
 import { getProductAvailableStock } from '@/lib/productAvailability';
 import { getProductPricing } from '@/lib/productPricing';
 import { SITE_URL } from '@/lib/siteUrl';
+import Brand from '@/models/Brand';
 import Product from '@/models/Product';
 import Settings from '@/models/Settings';
 import ProductDetailClient from './ProductDetailClient';
