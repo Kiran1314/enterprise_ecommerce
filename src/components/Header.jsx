@@ -1,27 +1,26 @@
 'use client';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import { 
   Box, Container, Button, IconButton, Fade, Paper,
   Autocomplete, Avatar, Chip, Typography, TextField
 } from '@mui/material';
 import { 
-  Search, ContactSupport, Settings 
+  Search, ContactSupport, Settings, Instagram, Facebook
 } from '@mui/icons-material';
+
+const socialLinks = [
+  { label: 'Instagram', href: 'https://www.instagram.com/super._.japandxb/', icon: <Instagram /> },
+  { label: 'Facebook', href: 'https://www.facebook.com/highspeedautospareparts/', icon: <Facebook /> },
+  { label: 'TikTok', href: 'https://www.tiktok.com/@superrfjapan/', icon: (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M16.7 5.1c-.8-1-1.3-2.2-1.3-3.6h-3.1v14.1a2.9 2.9 0 1 1-2.5-2.9v-3.2a6 6 0 1 0 5.6 6V9.1c1.3 1 2.9 1.5 4.6 1.5V7.5c-1.5 0-2.7-.9-3.3-2.4z"/>
+    </svg>
+  ) }
+];
 
 export default function Header({ categories = [], brands = [], products = [], searchQuery = '', setSearchQuery }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const pathname = usePathname();
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    setMobileMenuOpen(false);
-  }, [pathname]);
 
   const searchOptions = useMemo(() => {
     if (!searchQuery || !searchQuery.trim()) return [];
@@ -180,18 +179,46 @@ export default function Header({ categories = [], brands = [], products = [], se
             <Button component={Link} href="/" sx={{ color: '#1e293b', fontWeight: 600, textTransform: 'none' }}>Home</Button>
             <Button component={Link} href="/about" sx={{ color: '#1e293b', fontWeight: 600, textTransform: 'none' }}>About us</Button>
             <Button component={Link} href="/contact" variant="contained" startIcon={<ContactSupport />} sx={{ bgcolor: '#252D3C', '&:hover': { bgcolor: '#BD5E22' }, borderRadius: 2, textTransform: 'none', fontWeight: 'bold' }}>Contact Us</Button>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+              {socialLinks.map((social) => (
+                <IconButton
+                  key={social.label}
+                  component="a"
+                  href={social.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={social.label}
+                  sx={{ color: '#252D3C', '&:hover': { color: '#BD5E22' } }}
+                >
+                  {social.icon}
+                </IconButton>
+              ))}
+            </Box>
           </Box>
         </Box>
 
-        {mounted && (
-          <Fade in={mobileMenuOpen} timeout={300} unmountOnExit>
+        <Fade in={mobileMenuOpen} timeout={300} unmountOnExit>
             <Paper elevation={4} sx={{ display: { xs: 'flex', md: 'none' }, flexDirection: 'column', gap: 1, p: 2, mt: 1.5, borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: '#ffffff' }}>
               <Button component={Link} href="/" fullWidth onClick={() => setMobileMenuOpen(false)} sx={{ justifyContent: 'flex-start', color: '#1e293b', fontWeight: 600, textTransform: 'none', py: 1, px: 2, borderRadius: 2, '&:hover': { bgcolor: '#f8fafc' } }}>Home</Button>
               <Button component={Link} href="/about" fullWidth onClick={() => setMobileMenuOpen(false)} sx={{ justifyContent: 'flex-start', color: '#1e293b', fontWeight: 600, textTransform: 'none', py: 1, px: 2, borderRadius: 2, '&:hover': { bgcolor: '#f8fafc' } }}>About us</Button>
               <Button component={Link} href="/contact" variant="contained" fullWidth startIcon={<ContactSupport />} onClick={() => setMobileMenuOpen(false)} sx={{ bgcolor: '#252D3C', '&:hover': { bgcolor: '#BD5E22' }, borderRadius: 2, textTransform: 'none', fontWeight: 'bold', py: 1.2, mt: 0.5 }}>Contact Us</Button>
+              <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, pt: 0.5 }}>
+                {socialLinks.map((social) => (
+                  <IconButton
+                    key={social.label}
+                    component="a"
+                    href={social.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={social.label}
+                    sx={{ color: '#252D3C' }}
+                  >
+                    {social.icon}
+                  </IconButton>
+                ))}
+              </Box>
             </Paper>
           </Fade>
-        )}
       </Container>
     </Box>
   );
