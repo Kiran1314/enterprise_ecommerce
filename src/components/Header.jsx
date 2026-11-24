@@ -10,9 +10,9 @@ import {
 } from '@mui/icons-material';
 
 const socialLinks = [
-  { label: 'Instagram', href: 'https://www.instagram.com/super._.japandxb/', icon: <Instagram /> },
-  { label: 'Facebook', href: 'https://www.facebook.com/highspeedautospareparts/', icon: <Facebook /> },
-  { label: 'TikTok', href: 'https://www.tiktok.com/@superrfjapan/', icon: (
+  { label: 'Instagram', href: 'https://www.instagram.com/high_speed_auto_spare_part', icon: <Instagram /> },
+  { label: 'Facebook', href: 'https://www.facebook.com/saleem.khan.754570', icon: <Facebook /> },
+  { label: 'TikTok', href: 'https://vt.tiktok.com/ZSsFNagwf/', icon: (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       <path d="M16.7 5.1c-.8-1-1.3-2.2-1.3-3.6h-3.1v14.1a2.9 2.9 0 1 1-2.5-2.9v-3.2a6 6 0 1 0 5.6 6V9.1c1.3 1 2.9 1.5 4.6 1.5V7.5c-1.5 0-2.7-.9-3.3-2.4z"/>
     </svg>
