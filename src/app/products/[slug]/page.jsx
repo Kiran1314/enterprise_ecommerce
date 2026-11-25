@@ -53,15 +53,25 @@ export async function generateMetadata({ params }) {
   const description = getProductDescription(product) || `${product.title} - ${product.sku}`;
   const canonicalUrl = getProductUrl(product.slug || slug);
   const image = product.images?.map(getProductImageUrl).find(Boolean);
+  const title = `${product.title} (${product.sku}) | Super RF Japan`;
+  const metaDescription = description.slice(0, 160);
 
   return {
-    title: `${product.title} (${product.sku}) | Super RF Japan`,
-    description: (description || `${product.title} - ${product.sku}`).slice(0, 160),
+    title,
+    description: metaDescription,
     alternates: { canonical: canonicalUrl },
     openGraph: {
-      title: `${product.title} (${product.sku})`,
-      description,
+      type: 'website',
+      siteName: 'SUPER RF JAPAN',
+      title,
+      description: metaDescription,
       url: canonicalUrl,
+      ...(image ? { images: [image] } : {})
+    },
+    twitter: {
+      card: image ? 'summary_large_image' : 'summary',
+      title,
+      description: metaDescription,
       ...(image ? { images: [image] } : {})
     }
   };
