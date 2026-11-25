@@ -5,6 +5,7 @@ import { ShoppingCart, MessageCircle, Eye } from 'lucide-react';
 import Link from 'next/link';
 import { getProductPricing } from '@/lib/productPricing';
 import { getProductAvailableStock } from '@/lib/productAvailability';
+import { getProductEnquiryMessage } from '@/lib/productEnquiryMessage';
 
 export default function ProductCard({ product }) {
   const { addToCart } = useCart();
@@ -146,7 +147,7 @@ export default function ProductCard({ product }) {
               </Link>
             )}
             {(product.hasInquiry || !priceAvailable) && (
-              <button onClick={(e) => { e.preventDefault(); window.open(`https://wa.me/${product.whatsappNumber || '1234567890'}?text=${encodeURIComponent(`Please quote ${product.title} (${product.sku})`)}`, '_blank'); }} className="group/enquiry relative isolate h-7 shrink-0 w-full overflow-hidden rounded-md border border-[#BD5E22] bg-white px-3 text-xs font-bold text-[#BD5E22] transition-colors duration-300 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BD5E22]">
+              <button onClick={(e) => { e.preventDefault(); window.open(`https://wa.me/${product.whatsappNumber || '1234567890'}?text=${encodeURIComponent(getProductEnquiryMessage(product))}`, '_blank'); }} className="group/enquiry relative isolate h-7 shrink-0 w-full overflow-hidden rounded-md border border-[#BD5E22] bg-white px-3 text-xs font-bold text-[#BD5E22] transition-colors duration-300 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BD5E22]">
                 <span aria-hidden="true" className={`absolute inset-0 -z-10 translate-y-full bg-[#BD5E22] transition-transform duration-300 ease-out group-hover/enquiry:translate-y-0 group-focus-visible/enquiry:translate-y-0 ${isImageHovered ? 'translate-y-0' : ''}`} />
                 <span className="relative flex items-center justify-center gap-1.5">
                   <MessageCircle className="w-4 h-4 shrink-0" /> Enquiry

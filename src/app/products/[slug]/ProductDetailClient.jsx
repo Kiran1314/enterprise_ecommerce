@@ -9,6 +9,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { getProductPricing } from '@/lib/productPricing';
 import { useCart } from '@/components/Providers';
+import { getProductEnquiryMessage } from '@/lib/productEnquiryMessage';
 
 const ProductCard = dynamic(() => import('@/components/ProductCard'), {
   loading: () => <Box sx={{ minHeight: 320, bgcolor: '#f8fafc', borderRadius: 1 }} />,
@@ -150,7 +151,7 @@ export default function ProductDetailClient({ initialProduct, slug }) {
 
   const handleWhatsApp = () => {
     const phone = (product.whatsappNumber || '1234567890').replace(/\D/g, '');
-    const message = `Please quote ${product.title} (${product.sku})`;
+    const message = getProductEnquiryMessage(product);
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
