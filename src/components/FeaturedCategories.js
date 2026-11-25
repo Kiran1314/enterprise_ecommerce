@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 
 const imageList = category => {
@@ -8,28 +8,13 @@ const imageList = category => {
   return [...new Set([...images, category.icon].filter(Boolean))];
 };
 
-export default function FeaturedCategories() {
-  const [categories, setCategories] = useState([]);
-  const [sortMode, setSortMode] = useState('recent');
+export default function FeaturedCategories({ initialCategories, initialSortMode }) {
+  const categories = initialCategories;
+  const sortMode = initialSortMode;
   const [visibleCount, setVisibleCount] = useState(8);
-  const [loading, setLoading] = useState(true);
   const [hoveredCategory, setHoveredCategory] = useState(null);
   const [activeImages, setActiveImages] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
-
-  useEffect(() => {
-    Promise.all([
-      fetch('/api/categories').then(response => response.json()),
-      fetch('/api/settings').then(response => response.json()).catch(() => null)
-    ]).then(([categoryResult, settingsResult]) => {
-      if (categoryResult?.success) {
-        const featured = categoryResult.data.filter(category => category.isFeatured);
-        setCategories(featured.length ? featured : categoryResult.data);
-      }
-      if (settingsResult?.success) setSortMode(settingsResult.data?.categorySortMode || 'recent');
-    }).catch(error => console.error('Error fetching featured categories:', error))
-      .finally(() => setLoading(false));
-  }, []);
 
   const sortedCategories = useMemo(() => {
     const filtered = categories.filter(category =>
@@ -56,9 +41,7 @@ export default function FeaturedCategories() {
     const images = imageList(category);
     if (images.length > 1) {
       const current = activeImages[category._id] ?? 0;
-      let next = Math.floor(Math.random() * images.length);
-      if (images.length > 1 && next === current) next = (next + 1 + Math.floor(Math.random() * (images.length - 1))) % images.length;
-      setActiveImages(previous => ({ ...previous, [category._id]: next }));
+      setActiveImages(previous => ({ ...previous, [category._id]: (current + 1) % images.length }));
     }
   };
 
@@ -83,8 +66,7 @@ export default function FeaturedCategories() {
           />
         </div>
 
-        {loading ? <p className="featured-category-message">Loading categories...</p> :
-          shownCategories.length === 0 ? <p className="featured-category-message">No categories found.</p> : (
+        {shownCategories.length === 0 ? <p className="featured-category-message">No categories found.</p> : (
             <div className="featured-category-grid">
               {shownCategories.map(category => {
                 const images = imageList(category);
@@ -150,7 +132,7 @@ export default function FeaturedCategories() {
             </div>
           )}
 
-        {hasMore && !loading && (
+        {hasMore && (
           <div className="featured-load-more-wrap">
             <button type="button" className="featured-load-more" onClick={() => setVisibleCount(count => count + 8)}>
               Load More Categories <span aria-hidden="true">↓</span>

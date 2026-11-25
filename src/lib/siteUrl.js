@@ -1,1 +1,1 @@
-export const SITE_URL = 'https://superrfjapan.com';
+export const SITE_URL = 'https://www.superrfjapan.com';
