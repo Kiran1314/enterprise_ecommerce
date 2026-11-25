@@ -13,9 +13,9 @@ export async function GET() {
     } else {
       const updates = {};
       if (!settings.companyName || settings.companyName === 'EnterpriseStore') updates.companyName = 'Super RF Japan Auto Spare Parts Company';
-      if (!settings.companyPhone || settings.companyPhone === '+1 (555) 019-2834') updates.companyPhone = '+971 549912098';
-      if (!settings.companyAddress || settings.companyAddress === '123 Business Rd, Suite 100, Tech City') updates.companyAddress = '21C Street, G Floor, 29733 96054, Naif, Deira, Dubai, Dubai Municipality, Show Entrance, UAE';
-      if (settings.companyEmail === 'support@enterprisestore.com') updates.companyEmail = '';
+      if (!settings.companyPhone || settings.companyPhone === '+1 (555) 019-2834' || settings.companyPhone === '+971 549912098') updates.companyPhone = '+971507675420';
+      if (!settings.companyAddress || settings.companyAddress === '123 Business Rd, Suite 100, Tech City' || settings.companyAddress === '21C Street, G Floor, 29733 96054, Naif, Deira, Dubai, Dubai Municipality, Show Entrance, UAE') updates.companyAddress = 'SHARJAH AL KHAN ROD INDUSTRIAL AREA NO 2 BAGLAF BILDING NEAR BAGLAF MOSQUE';
+      if (!settings.companyEmail || settings.companyEmail === 'support@enterprisestore.com' || settings.companyEmail === 'sales@superrfjapan.com') updates.companyEmail = 'Saleemkhan02017@gmail.com';
       if (settings.taxId === 'TX-9843210') updates.taxId = '';
       if (Object.keys(updates).length > 0) {
         settings = await Settings.findByIdAndUpdate(settings._id, { $set: updates }, { new: true });

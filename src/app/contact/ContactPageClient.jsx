@@ -102,7 +102,7 @@ function ContactContent({ initialSettings, productParam, skuParam }) {
               <Box>
                 <Typography variant="subtitle2" fontWeight="bold">Store Address</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {settings?.companyAddress || '21C Street, G Floor, 29733 96054, Naif, Deira, Dubai Municipality, Show Entrance, Dubai - UAE'}
+                  {settings?.companyAddress || 'SHARJAH AL KHAN ROD INDUSTRIAL AREA NO 2 BAGLAF BILDING NEAR BAGLAF MOSQUE'}
                 </Typography>
               </Box>
             </Box>
@@ -112,7 +112,7 @@ function ContactContent({ initialSettings, productParam, skuParam }) {
               <Box>
                 <Typography variant="subtitle2" fontWeight="bold">Phone / WhatsApp</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {settings?.companyPhone || '+971 50 000 0000'}
+                  {settings?.companyPhone || '+971507675420'}
                 </Typography>
               </Box>
             </Box>

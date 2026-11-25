@@ -17,9 +17,9 @@ export default function AdminSettingsPage() {
     currencySymbol: '$',
     currencyCode: 'USD',
     companyName: 'Super RF Japan Auto Spare Parts Company',
-    companyEmail: '',
-    companyPhone: '+971 549912098',
-    companyAddress: '21C Street, G Floor, 29733 96054, Naif, Deira, Dubai, Dubai Municipality, Show Entrance, UAE',
+    companyEmail: 'Saleemkhan02017@gmail.com',
+    companyPhone: '+971507675420',
+    companyAddress: 'SHARJAH AL KHAN ROD INDUSTRIAL AREA NO 2 BAGLAF BILDING NEAR BAGLAF MOSQUE',
     taxId: ''
   });
 

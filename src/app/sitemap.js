@@ -10,6 +10,7 @@ const staticPages = [
   { path: '/', changeFrequency: 'daily', priority: 1 },
   { path: '/about', changeFrequency: 'monthly', priority: 0.6 },
   { path: '/contact', changeFrequency: 'monthly', priority: 0.6 },
+  { path: '/return-policy', changeFrequency: 'yearly', priority: 0.3 },
   { path: '/privacy-policy', changeFrequency: 'yearly', priority: 0.3 },
   { path: '/terms-and-conditions', changeFrequency: 'yearly', priority: 0.3 }
 ];

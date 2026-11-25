@@ -4,9 +4,9 @@ const SettingsSchema = new mongoose.Schema({
   currencySymbol: { type: String, default: '$' },
   currencyCode: { type: String, default: 'USD' },
   companyName: { type: String, default: 'Super RF Japan Auto Spare Parts Company' },
-  companyEmail: { type: String, default: '' },
-  companyPhone: { type: String, default: '+971 549912098' },
-  companyAddress: { type: String, default: '21C Street, G Floor, 29733 96054, Naif, Deira, Dubai, Dubai Municipality, Show Entrance, UAE' },
+  companyEmail: { type: String, default: 'Saleemkhan02017@gmail.com' },
+  companyPhone: { type: String, default: '+971507675420' },
+  companyAddress: { type: String, default: 'SHARJAH AL KHAN ROD INDUSTRIAL AREA NO 2 BAGLAF BILDING NEAR BAGLAF MOSQUE' },
   taxId: { type: String, default: '' },
   categorySortMode: { type: String, enum: ['recent', 'alphabetical', 'custom'], default: 'recent' },
   paymentSettings: {

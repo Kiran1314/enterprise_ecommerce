@@ -41,14 +41,14 @@ export default function Footer() {
             <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 2, color: 'var(--auto-yellow)' }}>Contact Us</Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
               <Typography variant="body2" color="grey.300" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <LocationOn sx={{ fontSize: 18, color: 'var(--auto-yellow)' }} /> {settings?.companyAddress || '21C Street, G Floor, 29733 96054, Naif, Deira, Dubai, Dubai Municipality, Show Entrance, UAE'}
+                <LocationOn sx={{ fontSize: 18, color: 'var(--auto-yellow)' }} /> {settings?.companyAddress || 'SHARJAH AL KHAN ROD INDUSTRIAL AREA NO 2 BAGLAF BILDING NEAR BAGLAF MOSQUE'}
               </Typography>
               <Typography variant="body2" color="grey.300" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Phone sx={{ fontSize: 18, color: 'var(--auto-yellow)' }} /> {settings?.companyPhone || '+971 549912098'}
+                <Phone sx={{ fontSize: 18, color: 'var(--auto-yellow)' }} /> {settings?.companyPhone || '+971507675420'}
               </Typography>
-              {settings?.companyEmail && <Typography variant="body2" color="grey.300" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Email sx={{ fontSize: 18, color: 'var(--auto-yellow)' }} /> {settings.companyEmail}
-              </Typography>}
+              <Typography variant="body2" color="grey.300" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Email sx={{ fontSize: 18, color: 'var(--auto-yellow)' }} /> {settings?.companyEmail || 'Saleemkhan02017@gmail.com'}
+              </Typography>
               <Link
                 href="/contact"
                 style={{
@@ -77,6 +77,7 @@ export default function Footer() {
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
               <Link href="/" style={{ color: '#d1d5db', textDecoration: 'none', fontSize: '0.875rem' }}>Home</Link>
               <Link href="/terms-and-conditions" style={{ color: '#d1d5db', textDecoration: 'none', fontSize: '0.875rem' }}>Terms & Condition</Link>
+              <Link href="/return-policy" style={{ color: '#d1d5db', textDecoration: 'none', fontSize: '0.875rem' }}>Return Policy</Link>
               <Link href="/privacy-policy" style={{ color: '#d1d5db', textDecoration: 'none', fontSize: '0.875rem' }}>Privacy Policy</Link>
             </Box>
           </Grid>
