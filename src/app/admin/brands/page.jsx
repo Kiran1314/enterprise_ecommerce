@@ -27,6 +27,7 @@ export default function AdminBrandsCategoriesPage() {
   const [brandImageUploading, setBrandImageUploading] = useState(false);
   const [brandImageUploadError, setBrandImageUploadError] = useState('');
   const [brandImageInputMode, setBrandImageInputMode] = useState('upload'); // 'upload' | 'url'
+  const [pendingUploadedImageUrls, setPendingUploadedImageUrls] = useState([]);
 
   // Category & Subcategory Form & Upload State
   const [categoryForm, setCategoryForm] = useState({ name: '', slug: '', icon: '', images: [], sortOrder: '', isFeatured: false, description: '', attributes: [] });
@@ -78,6 +79,57 @@ export default function AdminBrandsCategoriesPage() {
   const setActiveImageList = images => {
     if (tabValue === 1) setCategoryForm(previous => ({ ...previous, images, icon: images[0] || '' }));
     else setSubcategoryForm(previous => ({ ...previous, images, icon: images[0] || '' }));
+  };
+  const appendActiveImage = image => {
+    if (tabValue === 1) {
+      setCategoryForm(previous => {
+        const images = [...new Set([...(previous.images || []), image])];
+        return { ...previous, images, icon: images[0] || '' };
+      });
+    } else {
+      setSubcategoryForm(previous => {
+        const images = [...new Set([...(previous.images || []), image])];
+        return { ...previous, images, icon: images[0] || '' };
+      });
+    }
+  };
+
+  const deleteUploadedImages = async imageUrls => {
+    const groups = [
+      { marker: '/brands-secondary/', endpoint: '/api/admin/brands/upload' },
+      { marker: '/categories-secondary/', endpoint: '/api/categories/upload' }
+    ];
+    for (const group of groups) {
+      const urls = imageUrls.filter(url => url.includes(group.marker));
+      if (!urls.length) continue;
+      const response = await fetch(group.endpoint, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrls: urls })
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Could not clean up uploaded images.');
+      }
+    }
+  };
+
+  const finishSave = async (result, retainedImageUrls) => {
+    if (!result.success) {
+      alert(result.error || 'Could not save this record.');
+      return;
+    }
+    const retained = new Set(retainedImageUrls.filter(Boolean));
+    const unusedUploads = pendingUploadedImageUrls.filter(url => !retained.has(url));
+    try {
+      await deleteUploadedImages(unusedUploads);
+    } catch (error) {
+      alert(error.message || 'Record saved, but some unused uploaded images could not be deleted.');
+    }
+    setPendingUploadedImageUrls([]);
+    setIsModalOpen(false);
+    if (result.warning) alert(result.warning);
+    fetchData();
   };
 
   const subcategoriesFlatList = useMemo(() => {
@@ -158,6 +210,7 @@ export default function AdminBrandsCategoriesPage() {
 
   const handleOpenCreate = () => {
     setModalMode('CREATE');
+    setPendingUploadedImageUrls([]);
     setBrandImageInputMode('upload');
     setCategoryImageInputMode('upload');
     setCategoryImageUrls('');
@@ -178,6 +231,7 @@ export default function AdminBrandsCategoriesPage() {
 
   const handleOpenEdit = (item) => {
     setModalMode('EDIT');
+    setPendingUploadedImageUrls([]);
     setBrandImageInputMode('upload');
     setCategoryImageInputMode('upload');
     setCategoryImageUrls('');
@@ -214,6 +268,7 @@ export default function AdminBrandsCategoriesPage() {
       const response = await fetch('/api/admin/brands/upload', { method: 'POST', body: uploadData });
       const result = await response.json();
       if (!response.ok || !result.success) throw new Error(result.error || 'Brand image upload failed.');
+      setPendingUploadedImageUrls(previous => [...new Set([...previous, result.logo])]);
       setBrandForm(previous => ({ ...previous, logo: result.logo }));
     } catch (error) {
       setBrandImageUploadError(error.message || 'Brand image upload failed.');
@@ -224,21 +279,32 @@ export default function AdminBrandsCategoriesPage() {
 
   const handleCategoryImageUpload = async event => {
     const files = Array.from(event.target.files || []);
-    event.target.value = '';
     if (!files.length) return;
+    if (files.length > 12) {
+      setCategoryImageUploadError('Upload up to 12 images at a time.');
+      event.target.value = '';
+      return;
+    }
     setCategoryImageUploading(true);
     setCategoryImageUploadError('');
     try {
-      const uploadData = new FormData();
-      files.forEach(file => uploadData.append('images', file));
-      const response = await fetch('/api/categories/upload', { method: 'POST', body: uploadData });
-      const result = await response.json();
-      if (!response.ok || !result.success) throw new Error(result.error || 'Category image upload failed.');
-      setActiveImageList([...activeImageList(), ...(result.images || (result.icon ? [result.icon] : []))]);
+      for (const file of files) {
+        const uploadData = new FormData();
+        uploadData.append('images', file);
+        const response = await fetch('/api/categories/upload', { method: 'POST', body: uploadData });
+        const result = await response.json();
+        const image = result.images?.[0] || result.icon;
+        if (!response.ok || !result.success || !image) {
+          throw new Error(result.error || 'Category image upload failed.');
+        }
+        setPendingUploadedImageUrls(previous => [...new Set([...previous, image])]);
+        appendActiveImage(image);
+      }
     } catch (error) {
       setCategoryImageUploadError(error.message || 'Category image upload failed.');
     } finally {
       setCategoryImageUploading(false);
+      event.target.value = '';
     }
   };
 
@@ -268,14 +334,24 @@ export default function AdminBrandsCategoriesPage() {
           body: JSON.stringify({ ...parentCat, subcategories: updatedSubs })
         });
         const data = await res.json();
-        if (data.success) fetchData();
+        if (data.success) {
+          if (data.warning) alert(data.warning);
+          fetchData();
+        } else {
+          alert(data.error || 'Unable to delete subcategory.');
+        }
       } else {
         const endpoint = tabValue === 0 ? `/api/brands/${item._id}` : `/api/categories/${item._id}`;
         const res = await fetch(endpoint, { method: 'DELETE' });
         const data = await res.json();
-        if (data.success) fetchData();
+        if (data.success) {
+          if (data.warning) alert(data.warning);
+          fetchData();
+        } else {
+          alert(data.error || 'Unable to delete item.');
+        }
       }
-    } catch (err) { alert('Error deleting item'); }
+    } catch (err) { alert(err.message || 'Error deleting item'); }
   };
 
   const handleSubmit = async (e) => {
@@ -286,13 +362,13 @@ export default function AdminBrandsCategoriesPage() {
         if (modalMode === 'EDIT') url += `/${currentItem._id}`;
         const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(brandForm) });
         const data = await res.json();
-        if (data.success) { setIsModalOpen(false); fetchData(); }
+        await finishSave(data, [brandForm.logo]);
       } else if (tabValue === 1) {
         let url = '/api/categories'; let method = modalMode === 'EDIT' ? `PUT` : `POST`;
         if (modalMode === 'EDIT') url += `/${currentItem._id}`;
         const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(categoryForm) });
         const data = await res.json();
-        if (data.success) { setIsModalOpen(false); fetchData(); }
+        await finishSave(data, [...categoryForm.images, categoryForm.icon]);
       } else {
         const parentCat = categories.find(c => c._id === subcategoryForm.parentCategory);
         if (!parentCat) return;
@@ -308,9 +384,20 @@ export default function AdminBrandsCategoriesPage() {
           body: JSON.stringify({ ...parentCat, subcategories: updatedSubs })
         });
         const data = await res.json();
-        if (data.success) { setIsModalOpen(false); fetchData(); }
+        await finishSave(data, [...subcategoryForm.images, subcategoryForm.icon]);
       }
-    } catch (err) { alert('Error saving.'); }
+    } catch (err) { alert(err.message || 'Error saving.'); }
+  };
+
+  const handleCloseDialog = async () => {
+    if (brandImageUploading || categoryImageUploading) return;
+    try {
+      await deleteUploadedImages(pendingUploadedImageUrls);
+      setPendingUploadedImageUrls([]);
+      setIsModalOpen(false);
+    } catch (error) {
+      alert(error.message || 'Could not clean up uploaded images. Please try closing again.');
+    }
   };
 
   const addAttributeField = (isSub = false) => {
@@ -325,7 +412,7 @@ export default function AdminBrandsCategoriesPage() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, mb: 4 }}>
         <Box>
           <Typography variant="h5" fontWeight="bold">Brands & Categories Management</Typography>
           <Typography variant="body2" color="text.secondary">Define attributes with 'Text' or 'Image' swatch types.</Typography>
@@ -336,7 +423,14 @@ export default function AdminBrandsCategoriesPage() {
       </Box>
 
       <Paper sx={{ mb: 3, borderRadius: 3 }} elevation={0}>
-        <Tabs value={tabValue} onChange={(e, val) => { setTabValue(val); setSearchTerm(''); setCurrentPage(1); }} sx={{ borderBottom: '1px solid #e2e8f0', px: 2 }}>
+        <Tabs
+          value={tabValue}
+          onChange={(e, val) => { setTabValue(val); setSearchTerm(''); setCurrentPage(1); }}
+          variant="scrollable"
+          scrollButtons="auto"
+          allowScrollButtonsMobile
+          sx={{ borderBottom: '1px solid #e2e8f0', px: 2 }}
+        >
           <Tab label={`Brands (${brands.length})`} sx={{ textTransform: 'none', fontWeight: 'bold' }} />
           <Tab label={`Categories (${categories.length})`} sx={{ textTransform: 'none', fontWeight: 'bold' }} />
           <Tab label={`Subcategories (${subcategoriesFlatList.length})`} sx={{ textTransform: 'none', fontWeight: 'bold' }} />
@@ -430,10 +524,10 @@ export default function AdminBrandsCategoriesPage() {
         <Pagination count={totalPages} page={currentPage} onChange={(event, page) => setCurrentPage(page)} color="primary" showFirstButton showLastButton />
       </Box>
 
-      <Dialog open={isModalOpen} onClose={() => setIsModalOpen(false)} maxWidth="sm" fullWidth slotProps={{ paper: { sx: { borderRadius: 3 } } }}>
+      <Dialog open={isModalOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth slotProps={{ paper: { sx: { borderRadius: 3 } } }}>
         <DialogTitle component="div" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#f8fafc' }}>
           <Typography variant="h6" fontWeight="bold">Manage Record</Typography>
-          <IconButton onClick={() => setIsModalOpen(false)} size="small"><Close /></IconButton>
+          <IconButton onClick={handleCloseDialog} disabled={brandImageUploading || categoryImageUploading} size="small"><Close /></IconButton>
         </DialogTitle>
         <Box component="form" onSubmit={handleSubmit}>
           <DialogContent sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -474,7 +568,7 @@ export default function AdminBrandsCategoriesPage() {
                       <Button variant="outlined" startIcon={<Upload />} onClick={() => brandImageInputRef.current?.click()} disabled={brandImageUploading} sx={{ textTransform: 'none' }}>
                         {brandImageUploading ? 'Uploading image...' : brandForm.logo ? 'Replace brand image' : 'Upload brand image'}
                       </Button>
-                      <Typography variant="caption" color="text.secondary">JPG, PNG, WebP, or GIF. Maximum 8 MB.</Typography>
+                      <Typography variant="caption" color="text.secondary">JPG, PNG, WebP, or GIF. Maximum 4 MB.</Typography>
                     </Box>
                     {brandForm.logo && <TextField fullWidth size="small" label="Stored image path" value={brandForm.logo} slotProps={{ input: { readOnly: true } }} />}
                   </>
@@ -503,6 +597,7 @@ export default function AdminBrandsCategoriesPage() {
               <Box sx={{ display: 'grid', gap: 1.5 }}>
                 <Typography variant="subtitle2" fontWeight="bold">{tabValue === 1 ? 'Category Images' : 'Subcategory Images'}</Typography>
                 <Typography variant="caption" color="text.secondary">Add multiple images. The first image is used as the primary/cover image.</Typography>
+                <Typography variant="caption" color="text.secondary">Upload JPG, PNG, WebP, or GIF files up to 4 MB each, or paste external image URLs.</Typography>
                 <input ref={categoryImageInputRef} type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleCategoryImageUpload} hidden />
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                   <Button variant="outlined" startIcon={<Upload />} onClick={() => categoryImageInputRef.current?.click()} disabled={categoryImageUploading} sx={{ textTransform: 'none' }}>
@@ -577,7 +672,7 @@ export default function AdminBrandsCategoriesPage() {
             )}
           </DialogContent>
           <DialogActions sx={{ p: 3, bgcolor: '#f8fafc' }}>
-            <Button onClick={() => setIsModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleCloseDialog} disabled={brandImageUploading || categoryImageUploading}>Cancel</Button>
             <Button type="submit" variant="contained" disabled={brandImageUploading || categoryImageUploading} sx={{ bgcolor: '#BD5E22' }}>Save</Button>
           </DialogActions>
         </Box>

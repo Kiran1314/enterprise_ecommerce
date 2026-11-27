@@ -1,11 +1,11 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { 
-  Box, Drawer, Toolbar, List, Typography, Divider, ListItem, 
-  ListItemButton, ListItemIcon, ListItemText, Button, Badge 
+  AppBar, Box, Drawer, IconButton, List, Toolbar, Typography, Divider, ListItem,
+  ListItemButton, ListItemIcon, ListItemText, Button, Badge, useMediaQuery, useTheme
 } from '@mui/material';
 import { 
-  Dashboard, Inventory, Category, ViewCarousel, Storefront, LocalOffer, ReceiptLong, PeopleAlt
+  Dashboard, Inventory, Category, ViewCarousel, Storefront, LocalOffer, ReceiptLong, PeopleAlt, VideoLibrary, ContactMail, Menu
 } from '@mui/icons-material';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -18,8 +18,11 @@ export default function AdminLayout({ children }) {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [navigationLinks, setNavigationLinks] = useState(['products']);
   const [pendingOrders, setPendingOrders] = useState(0);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   useEffect(() => {
     if (pathname === '/admin/login') return;
@@ -46,9 +49,11 @@ export default function AdminLayout({ children }) {
     dashboard: <Dashboard />,
     products: <Inventory />,
     orders: <Badge badgeContent={pendingOrders} color="error" max={99}><ReceiptLong /></Badge>,
+    enquiries: <ContactMail />,
     brands: <Category />,
     banners: <ViewCarousel />,
-    settings: <LocalOffer />
+    settings: <LocalOffer />,
+    storeHighlights: <VideoLibrary />
   };
   const menuItems = [
     ...ADMIN_NAVIGATION_ITEMS
@@ -71,13 +76,46 @@ export default function AdminLayout({ children }) {
   if (!authorized) return null;
 
   return (
-    <Box sx={{ display: 'flex', bgcolor: '#f8fafc', minHeight: '100vh' }}>
-      <Drawer
-        variant="permanent"
+    <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, bgcolor: '#f8fafc', minHeight: '100vh', minWidth: 0 }}>
+      <AppBar
+        position="sticky"
+        elevation={0}
         sx={{
-          width: drawerWidth,
+          display: { xs: 'block', md: 'none' },
+          bgcolor: '#fff',
+          color: 'text.primary',
+          borderBottom: '1px solid #e2e8f0'
+        }}
+      >
+        <Toolbar variant="dense" sx={{ minHeight: 56, px: 1.5, gap: 1 }}>
+          <IconButton
+            edge="start"
+            aria-label="Open admin navigation"
+            onClick={() => setMobileDrawerOpen(true)}
+            sx={{ color: 'text.primary' }}
+          >
+            <Menu />
+          </IconButton>
+          <Storefront color="primary" />
+          <Typography variant="subtitle1" fontWeight={800}>Admin Console</Typography>
+        </Toolbar>
+      </AppBar>
+      <Drawer
+        variant={isMobile ? 'temporary' : 'permanent'}
+        open={isMobile ? mobileDrawerOpen : true}
+        onClose={() => setMobileDrawerOpen(false)}
+        ModalProps={{ keepMounted: true }}
+        sx={{
+          width: isMobile ? 'min(85vw, 300px)' : drawerWidth,
           flexShrink: 0,
-          [`& .MuiDrawer-paper`]: { width: drawerWidth, boxSizing: 'border-box', borderRight: '1px solid #e2e8f0', bgcolor: '#fff' },
+          '&.MuiDrawer-docked': { display: { xs: 'none', md: 'block' } },
+          '&.MuiDrawer-root:not(.MuiDrawer-docked)': { display: { xs: 'block', md: 'none' } },
+          [`& .MuiDrawer-paper`]: {
+            width: isMobile ? 'min(85vw, 300px)' : drawerWidth,
+            boxSizing: 'border-box',
+            borderRight: '1px solid #e2e8f0',
+            bgcolor: '#fff'
+          },
         }}
       >
         <Toolbar sx={{ px: 3, display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -93,6 +131,7 @@ export default function AdminLayout({ children }) {
                 <ListItemButton 
                   component={Link} 
                   href={item.path}
+                  onClick={() => isMobile && setMobileDrawerOpen(false)}
                   sx={{ 
                     borderRadius: 2, 
                     bgcolor: isActive ? '#e0e7ff' : 'transparent',
@@ -132,7 +171,33 @@ export default function AdminLayout({ children }) {
           </Button>
         </Box>
       </Drawer>
-      <Box component="main" sx={{ flexGrow: '1', p: 4, width: `calc(100% - ${drawerWidth}px)`, minHeight: '100vh' }}>
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          minWidth: 0,
+          width: { xs: '100%', md: `calc(100% - ${drawerWidth}px)` },
+          p: { xs: 1.5, sm: 2.5, md: 4 },
+          minHeight: '100vh',
+          '& .MuiTableContainer-root': {
+            width: '100%',
+            maxWidth: '100%',
+            overflowX: 'auto',
+            overscrollBehaviorX: 'contain',
+            WebkitOverflowScrolling: 'touch'
+          },
+          '& .MuiTable-root': {
+            minWidth: { xs: 650, md: '100%' }
+          },
+          '& .MuiTableCell-root': {
+            px: { xs: 1, sm: 2 },
+            py: { xs: 1, sm: 1.5 }
+          },
+          '& .MuiPaper-root': {
+            maxWidth: '100%'
+          }
+        }}
+      >
         {children}
       </Box>
     </Box>

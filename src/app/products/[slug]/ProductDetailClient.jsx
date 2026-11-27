@@ -7,9 +7,11 @@ import {
 import { ExpandMore, ExpandLess, FilterList, ZoomIn, Close, ChevronLeft, ChevronRight } from '@mui/icons-material';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import ProductEnquiryDialog from '@/components/ProductEnquiryDialog';
 import { getProductPricing } from '@/lib/productPricing';
+import { getProductAvailableStock } from '@/lib/productAvailability';
+import { getProductImageUrls } from '@/lib/productImages';
 import { useCart } from '@/components/Providers';
-import { getProductEnquiryMessage } from '@/lib/productEnquiryMessage';
 
 const ProductCard = dynamic(() => import('@/components/ProductCard'), {
   loading: () => <Box sx={{ minHeight: 320, bgcolor: '#f8fafc', borderRadius: 1 }} />,
@@ -33,6 +35,7 @@ export default function ProductDetailClient({ initialProduct, slug }) {
   const [isAllDetailsExpanded, setIsAllDetailsExpanded] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showAllCategories, setShowAllCategories] = useState(false);
+  const [enquiryOpen, setEnquiryOpen] = useState(false);
 
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -110,9 +113,8 @@ export default function ProductDetailClient({ initialProduct, slug }) {
   const activeColorValue = colorAttr ? selectedAttributes[colorAttr.key] : null;
   const matchedColorOption = colorAttr?.options?.find(o => o.label === activeColorValue);
   
-  const activeImages = (matchedColorOption?.variationImages && matchedColorOption.variationImages.length > 0 && matchedColorOption.variationImages[0])
-    ? matchedColorOption.variationImages.filter(Boolean)
-    : (product.images?.length > 0 ? product.images : ['https://via.placeholder.com/400']);
+  const colorImages = getProductImageUrls({ images: matchedColorOption?.variationImages });
+  const activeImages = colorImages.length ? colorImages : getProductImageUrls(product);
 
   const pricing = getProductPricing(product);
   const priceAvailable = pricing.price !== null;
@@ -121,7 +123,9 @@ export default function ProductDetailClient({ initialProduct, slug }) {
   const discountPercent = hasOffer ? Math.round(((pricing.price - pricing.offerPrice) / pricing.price) * 100) : 0;
   const finalPrice = pricing.displayPrice;
   const hasVehicleFitments = product.fitments?.length > 0;
-  const canAddToCart = !isQuoteOnly && (!hasVehicleFitments || (selectedFitment && Number(selectedFitment.stock) > 0));
+  const canAddToCart = !isQuoteOnly && (hasVehicleFitments
+    ? Boolean(selectedFitment && Number(selectedFitment.stock) > 0)
+    : getProductAvailableStock(product) > 0);
   const relatedProductsKey = JSON.stringify([
     product.slug || slug,
     product.categories || [],
@@ -147,12 +151,6 @@ export default function ProductDetailClient({ initialProduct, slug }) {
       images: activeImages,
       selectedFitment: selectedFitment ? { make: selectedFitment.make, model: selectedFitment.model, year: selectedFitment.year } : null
     });
-  };
-
-  const handleWhatsApp = () => {
-    const phone = (product.whatsappNumber || '1234567890').replace(/\D/g, '');
-    const message = getProductEnquiryMessage(product);
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
   const scrollThumbnails = (direction) => {
@@ -385,12 +383,19 @@ export default function ProductDetailClient({ initialProduct, slug }) {
 
                     <Box sx={{ display: 'flex', gap: 1.5, mt: 3 }}>
                       {!isQuoteOnly && <Button fullWidth variant="contained" size="small" onClick={handleAddToCart} disabled={!canAddToCart} sx={{ bgcolor: 'var(--auto-red)', '&:hover': { bgcolor: 'var(--auto-red-hover)' }, fontWeight: 'bold', textTransform: 'none', py: 1.2, borderRadius: 1 }}>
-                        {hasVehicleFitments && !selectedFitment ? 'Select vehicle to add' : selectedFitment && Number(selectedFitment.stock) < 1 ? 'Out of stock' : 'Add to Cart'}
+                        {hasVehicleFitments && !selectedFitment
+                          ? 'Select vehicle to add'
+                          : (selectedFitment && Number(selectedFitment.stock) < 1) || (!hasVehicleFitments && getProductAvailableStock(product) < 1)
+                            ? 'Out of stock'
+                            : 'Add to Cart'}
                       </Button>}
                       {(product.hasInquiry || isQuoteOnly) && (
-                        <Button fullWidth variant="contained" size="small" onClick={handleWhatsApp} sx={{ bgcolor: 'var(--auto-red)', '&:hover': { bgcolor: 'var(--auto-red-hover)' }, fontWeight: 'bold', textTransform: 'none', py: 1.2, borderRadius: 1 }}>
-                          Enquiry
-                        </Button>
+                        <>
+                          <Button fullWidth variant="contained" size="small" onClick={() => setEnquiryOpen(true)} sx={{ bgcolor: 'var(--auto-red)', '&:hover': { bgcolor: 'var(--auto-red-hover)' }, fontWeight: 'bold', textTransform: 'none', py: 1.2, borderRadius: 1 }}>
+                            Enquiry
+                          </Button>
+                          <ProductEnquiryDialog product={product} open={enquiryOpen} onClose={() => setEnquiryOpen(false)} />
+                        </>
                       )}
                     </Box>
                   </Paper>

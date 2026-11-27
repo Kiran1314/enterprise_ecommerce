@@ -3,7 +3,7 @@ import dbConnect from '@/lib/dbConnect';
 import Brand from '@/models/Brand';
 import Category from '@/models/Category';
 import Product from '@/models/Product';
-import { getProductAvailableStock } from '@/lib/productAvailability';
+import { hasProductImage } from '@/lib/productImages';
 
 const slugify = value => String(value || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
@@ -25,7 +25,7 @@ export const getCategoryPageData = cache(async slug => {
     .filter(Boolean)
     .flatMap(value => [String(value).trim().toLowerCase(), slugify(value)]);
   const products = allProducts.filter(product => {
-    if (getProductAvailableStock(product) <= 0 || normalizedTargets.length === 0) return false;
+    if (!hasProductImage(product) || normalizedTargets.length === 0) return false;
     const productCategoryValues = (Array.isArray(product.categories) ? product.categories : [])
       .map(value => String(value || '').trim().toLowerCase());
     return productCategoryValues.some(value =>
@@ -50,7 +50,7 @@ export const getBrandPageData = cache(async slug => {
     Category.find({}).sort({ createdAt: -1 }).lean(),
     Product.find({ brand: brand._id }).populate('brand').sort({ createdAt: -1 }).lean()
   ]);
-  const products = allProducts.filter(product => getProductAvailableStock(product) > 0);
+  const products = allProducts.filter(hasProductImage);
   const usedCategories = new Set(products.flatMap(product => product.categories || []));
   const makes = [...new Set(allProducts.flatMap(product =>
     (product.fitments || []).map(fitment => fitment.make).filter(Boolean)

@@ -1,25 +1,17 @@
-import { randomUUID } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
-import path from 'node:path';
 import { NextResponse } from 'next/server';
 import { getAdmin } from '@/lib/adminAuth';
+import { deleteSecondaryImages, prepareImageFile, uploadSecondaryImage } from '@/lib/secondaryImageStorage';
 
 export const runtime = 'nodejs';
 
 const maxFileSize = 8 * 1024 * 1024;
-const imageTypes = [
-  { extension: 'jpg', mimeType: 'image/jpeg', matches: bytes => bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff },
-  { extension: 'png', mimeType: 'image/png', matches: bytes => bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) },
-  { extension: 'webp', mimeType: 'image/webp', matches: bytes => bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WEBP' },
-  { extension: 'gif', mimeType: 'image/gif', matches: bytes => ['GIF87a', 'GIF89a'].includes(bytes.toString('ascii', 0, 6)) }
-];
 
 export async function POST(request) {
   try {
     const admin = await getAdmin(request);
     if (!admin) return NextResponse.json({ success: false, error: 'Admin sign-in required.' }, { status: 401 });
 
-    const contentLength = Number(request.headers.get('content-length'));
+    const contentLength = Number(request.headers.get('content-length') || 0);
     if (Number.isFinite(contentLength) && contentLength > maxFileSize + 1024 * 1024) {
       return NextResponse.json({ success: false, error: 'Image must be 8 MB or smaller.' }, { status: 413 });
     }
@@ -29,23 +21,30 @@ export async function POST(request) {
     if (!file || typeof file === 'string') {
       return NextResponse.json({ success: false, error: 'Choose an image to upload.' }, { status: 400 });
     }
-    if (file.size === 0 || file.size > maxFileSize) {
-      return NextResponse.json({ success: false, error: 'Image must be between 1 byte and 8 MB.' }, { status: 413 });
-    }
+    const image = await prepareImageFile(file, maxFileSize);
+    const imageUrl = await uploadSecondaryImage(image, 'banners');
 
-    const bytes = Buffer.from(await file.arrayBuffer());
-    const imageType = imageTypes.find(type => type.matches(bytes));
-    if (!imageType) {
-      return NextResponse.json({ success: false, error: 'Use a valid JPG, PNG, WebP, or GIF image.' }, { status: 415 });
-    }
-
-    const filename = `${randomUUID()}.${imageType.extension}`;
-    const uploadDirectory = path.join(process.cwd(), 'public', 'uploads', 'banners');
-    await mkdir(uploadDirectory, { recursive: true });
-    await writeFile(path.join(uploadDirectory, filename), bytes, { flag: 'wx' });
-
-    return NextResponse.json({ success: true, image: `/uploads/banners/${filename}` }, { status: 201 });
+    return NextResponse.json({ success: true, image: imageUrl }, { status: 201 });
   } catch (error) {
-    return NextResponse.json({ success: false, error: error.message || 'Image upload failed.' }, { status: 500 });
+    console.error('Banner image upload failed:', error);
+    return NextResponse.json({ success: false, error: error.message || 'Image upload failed.' }, { status: error.status || 500 });
+  }
+}
+
+export async function DELETE(request) {
+  try {
+    const admin = await getAdmin(request);
+    if (!admin) return NextResponse.json({ success: false, error: 'Admin sign-in required.' }, { status: 401 });
+
+    const { imageUrls } = await request.json();
+    if (!Array.isArray(imageUrls) || imageUrls.some(url => typeof url !== 'string')) {
+      return NextResponse.json({ success: false, error: 'Provide an array of image URLs.' }, { status: 400 });
+    }
+
+    await deleteSecondaryImages(imageUrls, 'banners');
+    return NextResponse.json({ success: true }, { status: 200 });
+  } catch (error) {
+    console.error('Banner image deletion failed:', error);
+    return NextResponse.json({ success: false, error: error.message || 'Banner image deletion failed.' }, { status: 500 });
   }
 }

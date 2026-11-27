@@ -3,6 +3,7 @@ import dbConnect from '@/lib/dbConnect';
 import Category from '@/models/Category';
 import { getAdmin } from '@/lib/adminAuth';
 import { recordActivity } from '@/lib/activity';
+import { collectCategoryImageUrls, deleteSecondaryImages } from '@/lib/secondaryImageStorage';
 
 export async function GET(request, { params }) {
   try {
@@ -69,6 +70,7 @@ export async function PUT(request, { params }) {
     if (!category) {
       return NextResponse.json({ success: false, error: 'Category not found' }, { status: 404 });
     }
+    const previousImageUrls = collectCategoryImageUrls(category);
 
     category.name = body.name;
     category.slug = body.slug;
@@ -78,12 +80,21 @@ export async function PUT(request, { params }) {
     category.isFeatured = body.isFeatured ?? category.isFeatured;
     category.description = body.description;
     category.attributes = body.attributes;
-    category.subcategories = body.subcategories;
+    if (Array.isArray(body.subcategories)) category.subcategories = body.subcategories;
 
     await category.save();
     await recordActivity({ actor: admin, actorType: 'Admin', action: 'updated', entityType: 'Category', entityId: category._id, description: `${admin.name} updated category ${category.name} and its subcategories.` });
 
-    return NextResponse.json({ success: true, data: category }, { status: 200 });
+    const nextImageUrls = new Set(collectCategoryImageUrls(category));
+    let warning;
+    try {
+      await deleteSecondaryImages(previousImageUrls.filter(url => !nextImageUrls.has(url)), 'categories');
+    } catch (error) {
+      console.error(`Failed to delete removed images for category ${category._id}:`, error);
+      warning = 'Category saved, but one or more removed images could not be deleted from storage.';
+    }
+
+    return NextResponse.json({ success: true, data: category, warning }, { status: 200 });
   } catch (error) {
     console.error('Error updating category API:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
@@ -140,7 +151,14 @@ export async function DELETE(request, { params }) {
       return NextResponse.json({ success: false, error: 'Category not found' }, { status: 404 });
     }
     await recordActivity({ actor: admin, actorType: 'Admin', action: 'deleted', entityType: 'Category', entityId: category._id, description: `${admin.name} deleted category ${category.name}.` });
-    return NextResponse.json({ success: true, data: {} }, { status: 200 });
+    let warning;
+    try {
+      await deleteSecondaryImages(collectCategoryImageUrls(category), 'categories');
+    } catch (error) {
+      console.error(`Failed to delete images for deleted category ${category._id}:`, error);
+      warning = 'Category deleted, but one or more images could not be deleted from storage.';
+    }
+    return NextResponse.json({ success: true, data: {}, warning }, { status: 200 });
   } catch (error) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }

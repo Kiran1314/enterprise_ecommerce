@@ -1,4 +1,3 @@
-import { unstable_cache } from 'next/cache';
 import dbConnect from '@/lib/dbConnect';
 import Banner from '@/models/Banner';
 import Brand from '@/models/Brand';
@@ -6,18 +5,22 @@ import Category from '@/models/Category';
 import GoogleReview from '@/models/GoogleReview';
 import Product from '@/models/Product';
 import Settings from '@/models/Settings';
-import { getProductAvailableStock } from '@/lib/productAvailability';
+import StoreHighlight from '@/models/StoreHighlight';
+import { getProductImageUrls, hasProductImage } from '@/lib/productImages';
+import { getStoreHighlightEmbed } from '@/lib/storeHighlightUrls';
+import { resolveStoreHighlightCover, shouldRefreshStoreHighlightCover } from '@/lib/storeHighlightCover';
+import { sortStoreHighlights } from '@/lib/storeHighlightOrder';
 
-export const getHomePageData = unstable_cache(
-  async () => {
+export async function getHomePageData() {
     await dbConnect();
-    const [banners, categories, allProducts, brands, reviews, settings] = await Promise.all([
+    const [banners, categories, allProducts, brands, reviews, settings, storeHighlights] = await Promise.all([
       Banner.find({}).sort({ order: 1 }).lean(),
       Category.find({}).sort({ createdAt: -1 }).lean(),
       Product.find({}).populate('brand').sort({ createdAt: -1 }).lean(),
       Brand.find({}).lean(),
       GoogleReview.find({ isDisplayed: true, isDemo: { $ne: true } }).sort({ createdAt: -1 }).limit(6).lean(),
-      Settings.findOne({}).select('categorySortMode').lean()
+      Settings.findOne({}).select('categorySortMode').lean(),
+      StoreHighlight.find({ isActive: true }).lean()
     ]);
 
     const activeBanners = banners.filter(banner => banner.isActive);
@@ -27,18 +30,16 @@ export const getHomePageData = unstable_cache(
       }
     }
 
-    const inStockProducts = allProducts.filter(product => getProductAvailableStock(product) > 0);
-    const spareParts = inStockProducts.filter(product => product.sku?.startsWith('SJ-'));
-    const products = spareParts.length > 0 ? spareParts : inStockProducts;
+    const products = allProducts.filter(hasProductImage);
     const storefrontBrandIds = new Set(products.map(product => String(product.brand?._id || product.brand)));
     const storefrontBrands = brands.filter(brand => storefrontBrandIds.has(String(brand._id)));
     const sparePartCategories = new Set(products.flatMap(product => product.categories || []));
-    const storefrontCategories = spareParts.length > 0
+    const storefrontCategories = products.length
       ? categories.filter(category => sparePartCategories.has(category.name))
       : categories;
 
     const modelsByMake = {};
-    for (const product of allProducts) {
+    for (const product of products) {
       for (const fitment of product.fitments || []) {
         if (!fitment.make || !fitment.model || !fitment.year) continue;
         modelsByMake[fitment.make] ||= {};
@@ -60,6 +61,31 @@ export const getHomePageData = unstable_cache(
         ])
     );
 
+    const storefrontHighlights = await Promise.all(sortStoreHighlights(storeHighlights).map(async highlight => {
+        const shouldResolveCover = shouldRefreshStoreHighlightCover(highlight);
+        const thumbnailUrl = highlight.thumbnailUrl || (
+          shouldResolveCover
+            ? await resolveStoreHighlightCover(highlight.sourceUrl || highlight.url)
+            : ''
+        );
+        if (shouldResolveCover) {
+          await StoreHighlight.updateOne(
+            { _id: highlight._id },
+            { $set: { thumbnailUrl, thumbnailCheckedAt: new Date() } }
+          );
+        }
+
+        return {
+          _id: highlight._id,
+          title: highlight.title,
+          url: highlight.sourceUrl || highlight.url,
+          coverImage: highlight.coverImage,
+          thumbnailUrl,
+          order: highlight.order,
+          ...getStoreHighlightEmbed(highlight.sourceUrl || highlight.url)
+        };
+    }));
+
     return JSON.parse(JSON.stringify({
       banners: activeBanners,
       categories: storefrontCategories,
@@ -75,7 +101,7 @@ export const getHomePageData = unstable_cache(
         price: product.price,
         offerPrice: product.offerPrice,
         stock: product.stock,
-        images: product.images?.slice(0, 1) || [],
+        images: getProductImageUrls(product),
         brand: product.brand ? { _id: product.brand._id, name: product.brand.name } : product.brand,
         categories: product.categories,
         fitments: product.fitments?.map(({ make, model, year, stock, isDemo }) => ({ make, model, year, stock, isDemo })) || [],
@@ -94,12 +120,10 @@ export const getHomePageData = unstable_cache(
         })) || []
       })),
       brands: storefrontBrands,
+      storeHighlights: storefrontHighlights,
       reviews,
       categorySortMode: settings?.categorySortMode || 'recent',
       fitmentMakes: Object.keys(sortedModelsByMake),
       modelsByMake: sortedModelsByMake
     }));
-  },
-  ['homepage-catalog'],
-  { revalidate: 3600 }
-);
+}

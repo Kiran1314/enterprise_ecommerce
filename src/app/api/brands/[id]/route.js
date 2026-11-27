@@ -3,6 +3,7 @@ import dbConnect from '@/lib/dbConnect';
 import Brand from '@/models/Brand';
 import { getAdmin } from '@/lib/adminAuth';
 import { recordActivity } from '@/lib/activity';
+import { deleteSecondaryImages } from '@/lib/secondaryImageStorage';
 
 export async function GET(request, { params }) {
   try {
@@ -25,12 +26,25 @@ export async function PUT(request, { params }) {
     await dbConnect();
     const { id } = await params;
     const body = await request.json();
+    const previous = await Brand.findById(id);
+    if (!previous) {
+      return NextResponse.json({ success: false, error: 'Brand not found' }, { status: 404 });
+    }
     const brand = await Brand.findByIdAndUpdate(id, body, { new: true, runValidators: true, returnDocument: 'after' });
     if (!brand) {
       return NextResponse.json({ success: false, error: 'Brand not found' }, { status: 404 });
     }
     await recordActivity({ actor: admin, actorType: 'Admin', action: 'updated', entityType: 'Brand', entityId: brand._id, description: `${admin.name} updated brand ${brand.name}.` });
-    return NextResponse.json({ success: true, data: brand }, { status: 200 });
+    let warning;
+    if (previous.logo && previous.logo !== brand.logo) {
+      try {
+        await deleteSecondaryImages([previous.logo], 'brands');
+      } catch (error) {
+        console.error(`Failed to delete replaced logo for brand ${brand._id}:`, error);
+        warning = 'Brand saved, but the replaced logo could not be deleted from storage.';
+      }
+    }
+    return NextResponse.json({ success: true, data: brand, warning }, { status: 200 });
   } catch (error) {
     console.error('Error updating brand:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
@@ -48,7 +62,14 @@ export async function DELETE(request, { params }) {
       return NextResponse.json({ success: false, error: 'Brand not found' }, { status: 404 });
     }
     await recordActivity({ actor: admin, actorType: 'Admin', action: 'deleted', entityType: 'Brand', entityId: brand._id, description: `${admin.name} deleted brand ${brand.name}.` });
-    return NextResponse.json({ success: true, data: {} }, { status: 200 });
+    let warning;
+    try {
+      await deleteSecondaryImages([brand.logo], 'brands');
+    } catch (error) {
+      console.error(`Failed to delete logo for deleted brand ${brand._id}:`, error);
+      warning = 'Brand deleted, but its logo could not be deleted from storage.';
+    }
+    return NextResponse.json({ success: true, data: {}, warning }, { status: 200 });
   } catch (error) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }

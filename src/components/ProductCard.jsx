@@ -3,15 +3,17 @@ import React, { useState, useEffect } from 'react';
 import { useCart } from './Providers';
 import { ShoppingCart, MessageCircle, Eye } from 'lucide-react';
 import Link from 'next/link';
+import ProductEnquiryDialog from './ProductEnquiryDialog';
 import { getProductPricing } from '@/lib/productPricing';
 import { getProductAvailableStock } from '@/lib/productAvailability';
-import { getProductEnquiryMessage } from '@/lib/productEnquiryMessage';
+import { getProductImageUrls } from '@/lib/productImages';
 
 export default function ProductCard({ product }) {
   const { addToCart } = useCart();
   const [currency, setCurrency] = useState('$');
   const [selectedImageIdx, setSelectedImageIdx] = useState(0);
   const [isImageHovered, setIsImageHovered] = useState(false);
+  const [enquiryOpen, setEnquiryOpen] = useState(false);
 
   useEffect(() => {
     fetch('/api/settings')
@@ -44,11 +46,8 @@ export default function ProductCard({ product }) {
     });
   });
 
-  // Robust display images fallback resolution: direct images -> variation images -> placeholder
-  const firstColorVarImg = colorAttr?.options?.[0]?.variationImages?.[0];
-  const displayImages = (product.images && product.images.length > 0 && product.images[0])
-    ? product.images
-    : (firstColorVarImg ? [firstColorVarImg] : ['https://via.placeholder.com/300']);
+  const displayImages = getProductImageUrls(product);
+  if (!displayImages.length) return null;
 
   return (
     <div className="group/card relative z-0 h-full overflow-visible rounded-md border border-gray-100 bg-white shadow-sm transition-all duration-300 hover:z-20 hover:shadow-md flex flex-col">
@@ -133,7 +132,7 @@ export default function ProductCard({ product }) {
             ))}
           </div>
           <div className="mt-1.5 shrink-0 flex flex-col gap-1">
-            {priceAvailable && !product.fitments?.length && (
+            {priceAvailable && totalStock > 0 && !product.fitments?.length && (
               <button
                 onClick={(e) => { e.preventDefault(); addToCart({ ...product, price: pricing.displayPrice }); }}
                 className="h-7 shrink-0 w-full flex items-center justify-center gap-1.5 bg-[#c45724] text-white px-3 rounded-md text-xs font-bold hover:bg-[#a9431a] transition-colors shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c45724]"
@@ -141,18 +140,21 @@ export default function ProductCard({ product }) {
                 <ShoppingCart className="w-4 h-4 shrink-0" /> <span>Add to Cart</span>
               </button>
             )}
-            {priceAvailable && product.fitments?.length > 0 && (
+            {priceAvailable && totalStock > 0 && product.fitments?.length > 0 && (
               <Link href={`/products/${product.slug || product._id}`} className="h-7 shrink-0 w-full flex items-center justify-center gap-1.5 bg-[#c45724] text-white px-3 rounded-md text-xs font-bold hover:bg-[#a9431a] transition-colors shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c45724]">
                 <Eye className="w-4 h-4 shrink-0" /> <span>Choose part</span>
               </Link>
             )}
             {(product.hasInquiry || !priceAvailable) && (
-              <button onClick={(e) => { e.preventDefault(); window.open(`https://wa.me/${product.whatsappNumber || '1234567890'}?text=${encodeURIComponent(getProductEnquiryMessage(product))}`, '_blank'); }} className="group/enquiry relative isolate h-7 shrink-0 w-full overflow-hidden rounded-md border border-[#BD5E22] bg-white px-3 text-xs font-bold text-[#BD5E22] transition-colors duration-300 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BD5E22]">
-                <span aria-hidden="true" className={`absolute inset-0 -z-10 translate-y-full bg-[#BD5E22] transition-transform duration-300 ease-out group-hover/enquiry:translate-y-0 group-focus-visible/enquiry:translate-y-0 ${isImageHovered ? 'translate-y-0' : ''}`} />
-                <span className="relative flex items-center justify-center gap-1.5">
-                  <MessageCircle className="w-4 h-4 shrink-0" /> Enquiry
-                </span>
-              </button>
+              <>
+                <button onClick={(e) => { e.preventDefault(); setEnquiryOpen(true); }} className="group/enquiry relative isolate h-7 shrink-0 w-full overflow-hidden rounded-md border border-[#BD5E22] bg-white px-3 text-xs font-bold text-[#BD5E22] transition-colors duration-300 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#BD5E22]">
+                  <span aria-hidden="true" className={`absolute inset-0 -z-10 translate-y-full bg-[#BD5E22] transition-transform duration-300 ease-out group-hover/enquiry:translate-y-0 group-focus-visible/enquiry:translate-y-0 ${isImageHovered ? 'translate-y-0' : ''}`} />
+                  <span className="relative flex items-center justify-center gap-1.5">
+                    <MessageCircle className="w-4 h-4 shrink-0" /> Enquiry
+                  </span>
+                </button>
+                <ProductEnquiryDialog product={product} open={enquiryOpen} onClose={() => setEnquiryOpen(false)} />
+              </>
             )}
           </div>
         </div>

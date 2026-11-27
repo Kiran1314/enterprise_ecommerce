@@ -9,7 +9,6 @@ import { ExpandLess, ExpandMore, FilterList } from '@mui/icons-material';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ProductCard from '@/components/ProductCard';
-import { getProductAvailableStock } from '@/lib/productAvailability';
 
 const slugify = value => String(value || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
@@ -33,7 +32,7 @@ export default function CategoryProductsClient({ slug, initialData }) {
       .flatMap(value => [String(value).trim().toLowerCase(), slugify(value)]);
 
     return products.filter(product => {
-      if (getProductAvailableStock(product) <= 0 || normalizedTargets.length === 0) return false;
+      if (normalizedTargets.length === 0) return false;
       const productCategoryValues = (Array.isArray(product.categories) ? product.categories : [])
         .map(value => String(value || '').trim().toLowerCase());
       return productCategoryValues.some(value =>

@@ -85,7 +85,7 @@ export default function AdminUsersPage() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, mb: 3 }}>
         <Typography component="h1" variant="h5" fontWeight={850}>Admin users</Typography>
         <Button variant="contained" onClick={() => setOpen(true)} sx={{ textTransform: 'none', fontWeight: 800 }}>Add admin</Button>
       </Box>

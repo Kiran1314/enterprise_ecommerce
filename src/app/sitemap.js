@@ -3,6 +3,7 @@ import Brand from '@/models/Brand';
 import Category from '@/models/Category';
 import Product from '@/models/Product';
 import { SITE_URL } from '@/lib/siteUrl';
+import { hasProductImage } from '@/lib/productImages';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,7 +24,7 @@ export default async function sitemap() {
     Brand.find({}).select('slug updatedAt createdAt').lean(),
     Product.find({
       isDemoData: { $ne: true }
-    }).select('slug updatedAt createdAt').lean()
+    }).select('slug updatedAt createdAt images attributes').lean()
   ]);
 
   const urls = staticPages.map(({ path, ...page }) => ({
@@ -51,7 +52,7 @@ export default async function sitemap() {
   brands.forEach(brand => {
     if (brand.slug) addCatalogUrl(`/brands/${encodeURIComponent(brand.slug)}`, brand);
   });
-  products.forEach(product => {
+  products.filter(hasProductImage).forEach(product => {
     if (!product.slug) return;
     const path = `/products/${encodeURIComponent(product.slug)}`;
     if (seenPaths.has(path)) return;

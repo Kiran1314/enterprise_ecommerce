@@ -10,6 +10,7 @@ import {
   Add, Search, Edit, Delete, Visibility, Close, DeleteSweep as DeleteIcon, 
   Code as CodeIcon, Upload, FileUpload, Download, FilterAltOff 
 } from '@mui/icons-material';
+import { parseCSVText } from '@/lib/productCsv';
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState([]);
@@ -18,6 +19,9 @@ export default function AdminProductsPage() {
   const [globalSettings, setGlobalSettings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadedImageUrls, setUploadedImageUrls] = useState([]);
+  const [productImageUploadError, setProductImageUploadError] = useState('');
+  const productImagesInputRef = useRef(null);
 
   // Column Filter States
   const [searchTerm, setSearchTerm] = useState('');
@@ -30,6 +34,9 @@ export default function AdminProductsPage() {
   const [maxPrice, setMaxPrice] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [selectedProductIds, setSelectedProductIds] = useState([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [productActionAlert, setProductActionAlert] = useState(null);
 
   // CSV Bulk Import States
   const csvInputRef = useRef(null);
@@ -81,6 +88,54 @@ export default function AdminProductsPage() {
       if (settingsData.success) setGlobalSettings(settingsData.data);
       setLoading(false);
     }).catch(() => setLoading(false));
+  };
+
+  const handleProductImagesUpload = async (event) => {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
+    if (files.length > 12) {
+      setProductImageUploadError('Upload up to 12 images at a time.');
+      event.target.value = '';
+      return;
+    }
+
+    setIsUploading(true);
+    setProductImageUploadError('');
+    try {
+      for (const file of files) {
+        const uploadData = new FormData();
+        uploadData.append('image', file);
+        const response = await fetch('/api/products/upload', { method: 'POST', body: uploadData });
+        const result = await response.json();
+        if (!response.ok || !result.success || !result.imageUrl) {
+          throw new Error(result.error || 'Product image upload failed.');
+        }
+
+        setUploadedImageUrls(previous => [...new Set([...previous, result.imageUrl])]);
+        setFormData(previous => ({
+          ...previous,
+          images: [...previous.images.filter(Boolean), result.imageUrl]
+        }));
+      }
+    } catch (error) {
+      setProductImageUploadError(error.message || 'Product image upload failed.');
+    } finally {
+      setIsUploading(false);
+      event.target.value = '';
+    }
+  };
+
+  const deleteUploadedImages = async (imageUrls) => {
+    if (!imageUrls.length) return;
+    const response = await fetch('/api/products/upload', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageUrls })
+    });
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      throw new Error(result.error || 'Could not clean up uploaded product images.');
+    }
   };
 
   useEffect(() => {
@@ -158,70 +213,52 @@ export default function AdminProductsPage() {
     });
   }, [dynamicCategoryAttributes, modalMode]);
 
-  const parseCSVText = (text) => {
-    const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
-    if (lines.length < 2) return [];
-
-    const parseRow = (row) => {
-      const result = [];
-      let current = '';
-      let inQuotes = false;
-      for (let i = 0; i < row.length; i++) {
-        const char = row[i];
-        if (char === '"') {
-          inQuotes = !inQuotes;
-        } else if (char === ',' && !inQuotes) {
-          result.push(current.trim());
-          current = '';
-        } else {
-          current += char;
-        }
-      }
-      result.push(current.trim());
-      return result;
-    };
-
-    const headers = parseRow(lines[0]).map(h => h.replace(/^"|"$/g, '').trim());
-    return lines.slice(1).map(line => {
-      const values = parseRow(line);
-      const obj = {};
-      headers.forEach((h, idx) => {
-        obj[h] = values[idx] !== undefined ? values[idx].replace(/^"|"$/g, '').trim() : '';
-      });
-      return obj;
-    });
-  };
-
   const handleDownloadCSVTemplate = () => {
     const headers = [
-      'title', 'slug', 'sku', 'description', 'price', 'offerPrice', 'comparePrice', 
-      'stock', 'brand', 'categories', 'images', 'fitments', 'customTags', 'isFeatured', 'hasInquiry'
+      'title', 'slug', 'sku', 'description', 'price', 'offerPrice', 'comparePrice', 'stock',
+      'brand', 'categories', 'images', 'fitments', 'isDemoData', 'isFeatured', 'hasInquiry',
+      'whatsappNumber', 'customTags', 'attributes', 'highlights'
     ];
     const sampleRow = [
-      '"Alternator Toyota Hilux 1KD"',
-      '"alternator-toyota-hilux-1kd"',
-      '"ALT-1KD-001"',
-      '"High performance OEM spec alternator for Toyota Hilux 1KD/2KD engines."',
+      'Alternator Toyota Hilux 1KD',
+      'alternator-toyota-hilux-1kd',
+      'ALT-1KD-001',
+      'High performance OEM spec alternator for Toyota Hilux 1KD/2KD engines.',
       '250',
       '220',
       '280',
       '15',
-      '"Toyota"',
-      '"ALTERNATORS AND STARTERS"',
-      '"/assets/images/spare-parts/ALTERNATORS AND STARTERS/ALTERNATOR TOYOTA HILUX 1KD 2KD.jpg"',
-      '"Toyota:Hilux:2015:10|Toyota:Hilux:2016:5"',
-      '"OEM:#6600cc|Best Seller:#166534"',
+      'Toyota',
+      'ALTERNATORS AND STARTERS',
+      '/assets/images/spare-parts/ALTERNATORS AND STARTERS/ALTERNATOR TOYOTA HILUX 1KD 2KD.jpg',
+      JSON.stringify([{ make: 'Toyota', model: 'Hilux', year: '2015', stock: 10 }]),
+      'false',
       'true',
-      'true'
+      'true',
+      '+971507675420',
+      JSON.stringify([{ label: 'OEM', bgColor: '#BD5E22' }, { label: 'Best Seller', bgColor: '#166534' }]),
+      JSON.stringify([{
+        key: 'Model Year',
+        type: 'select',
+        value: '2015',
+        options: [{ label: '2015', stock: 10, variationImages: [] }]
+      }]),
+      JSON.stringify([{
+        mainHeading: 'Product highlights',
+        items: [{ heading: 'Fit', description: 'Designed for Toyota Hilux.' }]
+      }])
     ];
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), sampleRow.join(',')].join('\n');
-    const encodedUri = encodeURI(csvContent);
+    const quoteCSVCell = cell => `"${String(cell ?? '').replace(/"/g, '""')}"`;
+    const csvContent = [headers, sampleRow].map(row => row.map(quoteCSVCell).join(',')).join('\r\n');
+    const csvBlob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+    const downloadUrl = URL.createObjectURL(csvBlob);
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
+    link.setAttribute('href', downloadUrl);
     link.setAttribute('download', 'products_bulk_import_template.csv');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
   };
 
   const handleCSVImport = async (event) => {
@@ -237,51 +274,164 @@ export default function AdminProductsPage() {
       const rows = parseCSVText(text);
       if (!rows.length) throw new Error('CSV file is empty or improperly formatted.');
 
-      const formattedProducts = rows.map(row => {
-        const matchedBrand = brands.find(b => 
-          b.name?.toLowerCase() === row.brand?.toLowerCase() || b._id === row.brand
+      const parseJsonArray = (value, field, rowNumber) => {
+        if (!value?.trim()) return null;
+        try {
+          const parsed = JSON.parse(value);
+          if (!Array.isArray(parsed)) throw new Error();
+          return parsed;
+        } catch {
+          throw new Error(`CSV row ${rowNumber}: "${field}" must contain a valid JSON array.`);
+        }
+      };
+      const parseList = (value, field, rowNumber) => {
+        if (!value?.trim()) return [];
+        if (value.trim().startsWith('[')) {
+          const parsed = parseJsonArray(value, field, rowNumber);
+          if (!parsed.every(item => typeof item === 'string')) {
+            throw new Error(`CSV row ${rowNumber}: "${field}" JSON values must be strings.`);
+          }
+          return parsed.map(item => item.trim()).filter(Boolean);
+        }
+        return value.split('|').map(item => item.trim()).filter(Boolean);
+      };
+      const parseNumber = (value, field, rowNumber, defaultValue = 0, allowBlank = false) => {
+        if (!value?.trim() && allowBlank) return null;
+        if (!value?.trim()) return defaultValue;
+        const parsed = Number(value);
+        const isStock = field.toLowerCase().includes('stock');
+        if (!Number.isFinite(parsed) || (isStock && parsed < 0)) {
+          throw new Error(`CSV row ${rowNumber}: "${field}" must be ${isStock ? 'a non-negative number' : 'a number'}.`);
+        }
+        return parsed;
+      };
+      const parseBoolean = (value, field, rowNumber) => {
+        const normalized = value?.trim().toLowerCase();
+        if (!normalized) return false;
+        if (['true', '1', 'yes', 'y'].includes(normalized)) return true;
+        if (['false', '0', 'no', 'n'].includes(normalized)) return false;
+        throw new Error(`CSV row ${rowNumber}: "${field}" must be true or false.`);
+      };
+      const parseStructuredColumn = (value, field, rowNumber, legacyParser) => {
+        if (!value?.trim()) return [];
+        if (value.trim().startsWith('[')) return parseJsonArray(value, field, rowNumber);
+        return legacyParser(value);
+      };
+
+      const formattedProducts = rows.map((row, index) => {
+        const rowNumber = index + 2;
+        const title = row.title?.trim() || '';
+        const sku = row.sku?.trim() || '';
+        const description = row.description?.trim() || '';
+        if (!title || !sku || !description) {
+          throw new Error(`CSV row ${rowNumber} requires title, sku, and description.`);
+        }
+
+        const brandValue = row.brand?.trim() || '';
+        const matchedBrand = brands.find(brand =>
+          brand.name?.trim().toLowerCase() === brandValue.toLowerCase() || String(brand._id) === brandValue
         );
+        if (!matchedBrand) throw new Error(`CSV row ${rowNumber}: brand "${brandValue || '(blank)'}" was not found.`);
 
-        const fitments = row.fitments
-          ? row.fitments.split('|').map(f => {
-              const [make = '', model = '', year = '', stock = 0] = f.split(':');
-              return { make: make.trim(), model: model.trim(), year: year.trim(), stock: Number(stock) || 0 };
-            }).filter(f => f.make && f.model && f.year)
-          : [];
+        const fitmentRows = parseStructuredColumn(row.fitments, 'fitments', rowNumber, value =>
+          value.split('|').map(item => {
+            const [make = '', model = '', year = '', stock = '0'] = item.split(':');
+            return { make, model, year, stock };
+          })
+        );
+        const fitments = fitmentRows.map(fitment => {
+          if (!fitment || typeof fitment !== 'object') {
+            throw new Error(`CSV row ${rowNumber}: each fitment must be an object.`);
+          }
+          const make = String(fitment.make || '').trim();
+          const model = String(fitment.model || '').trim();
+          const year = String(fitment.year || '').trim();
+          if (!make || !model || !year) {
+            throw new Error(`CSV row ${rowNumber}: each fitment needs make, model, and year.`);
+          }
+          return {
+            make,
+            model,
+            year,
+            stock: parseNumber(String(fitment.stock ?? ''), 'fitment stock', rowNumber),
+            isDemo: parseBoolean(String(fitment.isDemo ?? ''), 'fitment isDemo', rowNumber)
+          };
+        });
 
-        const customTags = row.customTags
-          ? row.customTags.split('|').map(t => {
-              const [label = '', bgColor = '#6600cc'] = t.split(':');
-              return { label: label.trim(), bgColor: bgColor.trim() || '#6600cc' };
-            }).filter(t => t.label)
-          : [];
+        const tagRows = parseStructuredColumn(row.customTags, 'customTags', rowNumber, value =>
+          value.split('|').map(item => {
+            const [label = '', bgColor = '#BD5E22'] = item.split(':');
+            return { label, bgColor };
+          })
+        );
+        const customTags = tagRows.map(tag => {
+          if (!tag || typeof tag !== 'object') {
+            throw new Error(`CSV row ${rowNumber}: each custom tag must be an object.`);
+          }
+          const label = String(tag.label || '').trim();
+          if (!label) throw new Error(`CSV row ${rowNumber}: each custom tag needs a label.`);
+          return { label, bgColor: String(tag.bgColor || '#BD5E22').trim() };
+        });
 
-        const title = row.title || '';
-        const slug = row.slug || title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        const attributes = parseJsonArray(row.attributes, 'attributes', rowNumber) || [];
+        const normalizedAttributes = attributes.map(attribute => {
+          const key = String(attribute?.key || '').trim();
+          if (!key) throw new Error(`CSV row ${rowNumber}: each attribute needs a key.`);
+          const allowedTypes = ['text', 'image', 'select', 'radio', 'button'];
+          const type = allowedTypes.includes(attribute.type) ? attribute.type : 'text';
+          const options = (Array.isArray(attribute.options) ? attribute.options : []).map(option => {
+            const label = String(option?.label || '').trim();
+            if (!label) throw new Error(`CSV row ${rowNumber}: each attribute option needs a label.`);
+            return {
+              label,
+              ...(option.image ? { image: String(option.image) } : {}),
+              variationImages: Array.isArray(option.variationImages) ? option.variationImages.map(String) : [],
+              stock: parseNumber(String(option.stock ?? ''), 'attribute option stock', rowNumber)
+            };
+          });
+          return { key, type, value: String(attribute.value ?? ''), options };
+        });
 
+        const highlightRows = parseJsonArray(row.highlights, 'highlights', rowNumber) || [];
+        const highlights = highlightRows.map(group => {
+          const mainHeading = String(group?.mainHeading || '').trim();
+          if (!mainHeading || !Array.isArray(group.items)) {
+            throw new Error(`CSV row ${rowNumber}: each highlight needs a mainHeading and items array.`);
+          }
+          const items = group.items.map(item => {
+            const heading = String(item?.heading || '').trim();
+            const itemDescription = String(item?.description || '').trim();
+            if (!heading || !itemDescription) {
+              throw new Error(`CSV row ${rowNumber}: each highlight item needs a heading and description.`);
+            }
+            return { heading, description: itemDescription };
+          });
+          return { mainHeading, items };
+        });
+
+        const slug = row.slug?.trim() || title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
         return {
           title,
           slug,
-          sku: row.sku || '',
-          description: row.description || '',
-          price: Number(row.price) || 0,
-          offerPrice: row.offerPrice !== '' && row.offerPrice !== undefined ? Number(row.offerPrice) : null,
-          comparePrice: row.comparePrice !== '' && row.comparePrice !== undefined ? Number(row.comparePrice) : null,
-          stock: Number(row.stock) || 0,
-          brand: matchedBrand ? matchedBrand._id : null,
-          categories: row.categories ? row.categories.split('|').map(c => c.trim()).filter(Boolean) : [],
-          images: row.images ? row.images.split('|').map(img => img.trim()).filter(Boolean) : [],
+          sku,
+          description,
+          price: parseNumber(row.price, 'price', rowNumber),
+          offerPrice: parseNumber(row.offerPrice, 'offerPrice', rowNumber, 0, true),
+          comparePrice: parseNumber(row.comparePrice, 'comparePrice', rowNumber, 0, true),
+          stock: parseNumber(row.stock, 'stock', rowNumber),
+          brand: matchedBrand._id,
+          categories: parseList(row.categories, 'categories', rowNumber),
+          images: parseList(row.images, 'images', rowNumber),
           fitments,
+          isDemoData: parseBoolean(row.isDemoData, 'isDemoData', rowNumber),
+          isFeatured: parseBoolean(row.isFeatured, 'isFeatured', rowNumber),
+          hasInquiry: parseBoolean(row.hasInquiry, 'hasInquiry', rowNumber),
+          whatsappNumber: row.whatsappNumber?.trim() || globalSettings?.companyPhone || '',
           customTags,
-          isFeatured: String(row.isFeatured).toLowerCase() === 'true',
-          hasInquiry: String(row.hasInquiry).toLowerCase() === 'true',
-          whatsappNumber: row.whatsappNumber || globalSettings?.companyPhone || ''
+          attributes: normalizedAttributes,
+          highlights
         };
-      }).filter(p => p.title && p.sku);
-
-      if (!formattedProducts.length) {
-        throw new Error('No valid product rows found. Ensure "title" and "sku" columns are populated.');
-      }
+      });
 
       const bulkRes = await fetch('/api/products/bulk', {
         method: 'POST',
@@ -289,21 +439,9 @@ export default function AdminProductsPage() {
         body: JSON.stringify({ products: formattedProducts })
       });
 
-      if (bulkRes.ok) {
-        const bulkData = await bulkRes.json();
-        setCsvAlert({ severity: 'success', message: `Successfully imported ${bulkData.count || formattedProducts.length} products.` });
-      } else {
-        let importedCount = 0;
-        for (const prod of formattedProducts) {
-          const res = await fetch('/api/products', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(prod)
-          });
-          if (res.ok) importedCount++;
-        }
-        setCsvAlert({ severity: 'success', message: `Successfully imported ${importedCount} of ${formattedProducts.length} products.` });
-      }
+      const bulkData = await bulkRes.json();
+      if (!bulkRes.ok || !bulkData.success) throw new Error(bulkData.error || 'Bulk import failed.');
+      setCsvAlert({ severity: 'success', message: `Successfully imported ${bulkData.count || formattedProducts.length} products.` });
       fetchData();
     } catch (err) {
       setCsvAlert({ severity: 'error', message: err.message || 'Failed to import CSV.' });
@@ -331,7 +469,11 @@ export default function AdminProductsPage() {
         throw new Error(result.error || result.message || 'Image upload failed.');
       }
       
-      onSuccess(result.imageUrl || result.data?.imageUrl);
+      const imageUrl = result.imageUrl || result.data?.imageUrl;
+      if (imageUrl) {
+        setUploadedImageUrls(previous => [...new Set([...previous, imageUrl])]);
+        onSuccess(imageUrl);
+      }
     } catch (error) {
       alert(error.message || 'Image upload failed.');
     } finally {
@@ -431,9 +573,14 @@ export default function AdminProductsPage() {
     return filteredProducts.slice(start, start + itemsPerPage);
   }, [filteredProducts, currentPage]);
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage) || 1;
+  const currentPageProductIds = paginatedProducts.map(product => String(product._id));
+  const selectedOnCurrentPage = currentPageProductIds.filter(id => selectedProductIds.includes(id)).length;
+  const allCurrentPageSelected = currentPageProductIds.length > 0 && selectedOnCurrentPage === currentPageProductIds.length;
 
   const handleOpenCreate = () => {
     setModalMode('CREATE');
+    setUploadedImageUrls([]);
+    setProductImageUploadError('');
     setFormData({
       title: '', slug: '', sku: '', description: '', price: '', offerPrice: '', comparePrice: '', stock: '',
       images: ['', '', ''], brand: brands[0] || null, categories: [], fitments: [], customTags: [], attributes: [], highlights: [],
@@ -444,6 +591,8 @@ export default function AdminProductsPage() {
 
   const handleOpenEdit = (product) => {
     setModalMode('EDIT');
+    setUploadedImageUrls([]);
+    setProductImageUploadError('');
     setCurrentProduct(product);
     const matchedBrand = brands.find(b => b._id === (product.brand?._id || product.brand)) || null;
 
@@ -481,8 +630,61 @@ export default function AdminProductsPage() {
     try {
       const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
       const data = await res.json();
-      if (data.success) fetchData();
+      if (data.success) {
+        setSelectedProductIds(current => current.filter(productId => productId !== String(id)));
+        if (data.warning) alert(data.warning);
+        fetchData();
+      } else {
+        alert(data.error || 'Unable to delete product.');
+      }
     } catch (err) { alert('Error deleting product'); }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!selectedProductIds.length) return;
+    if (!window.confirm(`Delete ${selectedProductIds.length} selected product(s)? This cannot be undone.`)) return;
+
+    setBulkDeleting(true);
+    setProductActionAlert(null);
+    try {
+      const results = await Promise.all(selectedProductIds.map(async id => {
+        try {
+          const response = await fetch(`/api/products/${id}`, { method: 'DELETE' });
+          const result = await response.json();
+          return {
+            id,
+            success: response.ok && result.success,
+            warning: result.warning || '',
+            error: result.error || ''
+          };
+        } catch (error) {
+          return { id, success: false, warning: '', error: error.message || 'Request failed.' };
+        }
+      }));
+      const deletedIds = new Set(results.filter(result => result.success).map(result => result.id));
+      const failedCount = results.length - deletedIds.size;
+      const warningCount = results.filter(result => result.success && result.warning).length;
+
+      setProducts(current => current.filter(product => !deletedIds.has(String(product._id))));
+      setSelectedProductIds(current => current.filter(id => !deletedIds.has(id)));
+      setCurrentPage(1);
+
+      if (failedCount) {
+        setProductActionAlert({
+          severity: 'error',
+          message: `Deleted ${deletedIds.size} product(s); ${failedCount} could not be deleted. Failed items remain selected so you can retry.`
+        });
+      } else if (warningCount) {
+        setProductActionAlert({
+          severity: 'warning',
+          message: `Deleted ${deletedIds.size} product(s), but image cleanup failed for ${warningCount}.`
+        });
+      } else {
+        setProductActionAlert({ severity: 'success', message: `Deleted ${deletedIds.size} selected product(s).` });
+      }
+    } finally {
+      setBulkDeleting(false);
+    }
   };
 
   const handleFormSubmit = async (e) => {
@@ -524,10 +726,36 @@ export default function AdminProductsPage() {
       const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const data = await res.json();
       if (data.success) {
+        const retainedImageUrls = new Set([
+          ...payload.images,
+          ...payload.attributes.flatMap(attribute => (attribute.options || []).flatMap(option => [
+            option.image,
+            ...(option.variationImages || [])
+          ]))
+        ].filter(Boolean));
+        const unreferencedUploads = uploadedImageUrls.filter(imageUrl => !retainedImageUrls.has(imageUrl));
+        try {
+          await deleteUploadedImages(unreferencedUploads);
+        } catch (cleanupError) {
+          alert(cleanupError.message || 'Product saved, but some unused uploaded images could not be deleted.');
+        }
+        setUploadedImageUrls([]);
         setIsModalOpen(false);
+        if (data.warning) alert(data.warning);
         fetchData();
       } else alert(data.error || 'Unable to save product.');
     } catch (err) { alert('An error occurred while saving.'); }
+  };
+
+  const handleCloseProductDialog = async () => {
+    if (isUploading) return;
+    try {
+      await deleteUploadedImages(uploadedImageUrls);
+      setUploadedImageUrls([]);
+      setIsModalOpen(false);
+    } catch (error) {
+      alert(error.message || 'Could not clean up uploaded product images. Please try closing again.');
+    }
   };
 
   const addImageField = () => setFormData({ ...formData, images: [...formData.images, ''] });
@@ -694,14 +922,14 @@ export default function AdminProductsPage() {
     }
   };
 
-  const hasColorImageAttribute = formData.attributes?.some(attr => attr.type === 'image' || attr.key.toLowerCase().includes('color'));
-
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, mb: 3 }}>
         <Box>
           <Typography variant="h5" fontWeight="bold">Products Management</Typography>
-          <Typography variant="body2" color="text.secondary">Filter by column fields or bulk import inventory via CSV.</Typography>
+          <Typography variant="body2" color="text.secondary">
+            CSV includes current product fields. Use pipe-separated categories/images, JSON arrays for fitments/tags/attributes/highlights, and an existing brand name or ID.
+          </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
           <input ref={csvInputRef} type="file" accept=".csv" hidden onChange={handleCSVImport} />
@@ -720,6 +948,11 @@ export default function AdminProductsPage() {
       {csvAlert && (
         <Alert severity={csvAlert.severity} onClose={() => setCsvAlert(null)} sx={{ mb: 3 }}>
           {csvAlert.message}
+        </Alert>
+      )}
+      {productActionAlert && (
+        <Alert severity={productActionAlert.severity} onClose={() => setProductActionAlert(null)} sx={{ mb: 3 }}>
+          {productActionAlert.message}
         </Alert>
       )}
 
@@ -794,10 +1027,43 @@ export default function AdminProductsPage() {
         </Grid>
       </Paper>
 
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, flexWrap: 'wrap', mb: 2 }}>
+        <Typography variant="body2" color="text.secondary">
+          {selectedProductIds.length} product{selectedProductIds.length === 1 ? '' : 's'} selected
+        </Typography>
+        <Button
+          variant="outlined"
+          color="error"
+          startIcon={<DeleteIcon />}
+          disabled={!selectedProductIds.length || bulkDeleting}
+          onClick={handleBulkDelete}
+          sx={{ textTransform: 'none' }}
+        >
+          {bulkDeleting ? 'Deleting...' : `Delete selected${selectedProductIds.length ? ` (${selectedProductIds.length})` : ''}`}
+        </Button>
+      </Box>
+
       <TableContainer component={Paper} elevation={0} sx={{ borderRadius: 3, border: '1px solid #e2e8f0', mb: 3 }}>
         <Table>
           <TableHead sx={{ bgcolor: '#f8fafc' }}>
             <TableRow>
+              <TableCell padding="checkbox">
+                <Checkbox
+                  aria-label="Select all products on this page"
+                  checked={allCurrentPageSelected}
+                  indeterminate={selectedOnCurrentPage > 0 && !allCurrentPageSelected}
+                  onChange={event => {
+                    setSelectedProductIds(current => {
+                      const next = new Set(current);
+                      currentPageProductIds.forEach(id => {
+                        if (event.target.checked) next.add(id);
+                        else next.delete(id);
+                      });
+                      return Array.from(next);
+                    });
+                  }}
+                />
+              </TableCell>
               <TableCell sx={{ fontWeight: 'bold', fontSize: '0.75rem' }}>IMAGE</TableCell>
               <TableCell sx={{ fontWeight: 'bold', fontSize: '0.75rem' }}>TITLE & SKU</TableCell>
               <TableCell sx={{ fontWeight: 'bold', fontSize: '0.75rem' }}>BRAND & CATEGORIES</TableCell>
@@ -813,9 +1079,22 @@ export default function AdminProductsPage() {
               const firstVarImg = firstColorAttr?.options?.[0]?.variationImages?.[0];
               const displayImg = firstVarImg || p.images?.[0] || '/assets/images/logo/logo.jpg';
               const brandName = p.brand?.name || brands.find(b => b._id === p.brand)?.name || '—';
+              const productId = String(p._id);
 
               return (
-                <TableRow key={p._id} hover>
+                <TableRow key={p._id} hover selected={selectedProductIds.includes(productId)}>
+                  <TableCell padding="checkbox">
+                    <Checkbox
+                      aria-label={`Select ${p.title}`}
+                      checked={selectedProductIds.includes(productId)}
+                      onChange={event => {
+                        setSelectedProductIds(current => event.target.checked
+                          ? Array.from(new Set([...current, productId]))
+                          : current.filter(id => id !== productId)
+                        );
+                      }}
+                    />
+                  </TableCell>
                   <TableCell><img src={displayImg} alt="" style={{ width: 44, height: 44, objectFit: 'contain', borderRadius: 4, border: '1px solid #e2e8f0', padding: 2 }} /></TableCell>
                   <TableCell>
                     <Typography variant="subtitle2" fontWeight="bold">{p.title}</Typography>
@@ -872,10 +1151,10 @@ export default function AdminProductsPage() {
       </Box>
 
       {/* Product Dialog / Modal */}
-      <Dialog open={isModalOpen} onClose={() => setIsModalOpen(false)} maxWidth="md" fullWidth slotProps={{ paper: { sx: { borderRadius: 1, maxHeight: 'calc(100% - 32px)' } } }}>
+      <Dialog open={isModalOpen} onClose={handleCloseProductDialog} maxWidth="md" fullWidth slotProps={{ paper: { sx: { borderRadius: 1, maxHeight: 'calc(100% - 32px)' } } }}>
         <DialogTitle component="div" sx={{ bgcolor: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h6" fontWeight="bold">{modalMode === 'VIEW' ? 'Product Details' : 'Manage Product'}</Typography>
-          <IconButton onClick={() => setIsModalOpen(false)} size="small"><Close /></IconButton>
+          <IconButton onClick={handleCloseProductDialog} disabled={isUploading} size="small"><Close /></IconButton>
         </DialogTitle>
         {modalMode === 'VIEW' && currentProduct ? (
           <DialogContent dividers sx={{ p: { xs: 2, md: 3 }, overflowY: 'auto' }}>
@@ -1035,26 +1314,34 @@ export default function AdminProductsPage() {
               )}
 
               {/* Main Product Images */}
-              {!hasColorImageAttribute && (
-                <Grid size={{ xs: 12 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                    <Typography variant="caption" fontWeight="bold">PRODUCT IMAGES</Typography>
-                    <Button size="small" onClick={addImageField} sx={{ textTransform: 'none' }}>+ Add Image Slot</Button>
+              <Grid size={{ xs: 12 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1, gap: 1, flexWrap: 'wrap' }}>
+                  <Typography variant="caption" fontWeight="bold">PRODUCT IMAGES</Typography>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <input ref={productImagesInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden onChange={handleProductImagesUpload} />
+                    <Button size="small" variant="outlined" startIcon={<Upload />} disabled={isUploading} onClick={() => productImagesInputRef.current?.click()} sx={{ textTransform: 'none' }}>
+                      {isUploading ? 'Uploading images...' : 'Upload multiple images'}
+                    </Button>
+                    <Button size="small" onClick={addImageField} sx={{ textTransform: 'none' }}>+ Add URL</Button>
                   </Box>
-                  
-                  {formData.images.map((img, idx) => (
-                    <Box key={idx} sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'center' }}>
-                      {img && <img src={img} alt="preview" style={{ width: 40, height: 40, objectFit: 'cover', border: '1px solid #e2e8f0', borderRadius: 4 }} />}
-                      <TextField fullWidth size="small" placeholder={`Paste External Image URL #${idx + 1}`} value={img} onChange={e => {
-                        const updated = [...formData.images];
-                        updated[idx] = e.target.value;
-                        setFormData({ ...formData, images: updated });
-                      }} />
-                      <IconButton color="error" onClick={() => removeImageField(idx)}><DeleteIcon fontSize="small" /></IconButton>
-                    </Box>
-                  ))}
-                </Grid>
-              )}
+                </Box>
+                <Typography variant="caption" color="text.secondary">
+                  Upload JPG, PNG, WebP, or GIF files up to 4 MB each, or paste external image URLs below.
+                </Typography>
+                {productImageUploadError && <Alert severity="error" sx={{ mb: 1 }}>{productImageUploadError}</Alert>}
+
+                {formData.images.map((img, idx) => (
+                  <Box key={idx} sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'center' }}>
+                    {img && <img src={img} alt="preview" style={{ width: 40, height: 40, objectFit: 'cover', border: '1px solid #e2e8f0', borderRadius: 4 }} />}
+                    <TextField fullWidth size="small" placeholder={`Paste External Image URL #${idx + 1}`} value={img} onChange={e => {
+                      const updated = [...formData.images];
+                      updated[idx] = e.target.value;
+                      setFormData({ ...formData, images: updated });
+                    }} />
+                    <IconButton color="error" onClick={() => removeImageField(idx)}><DeleteIcon fontSize="small" /></IconButton>
+                  </Box>
+                ))}
+              </Grid>
 
               <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                 <FormControlLabel control={<Checkbox checked={formData.isFeatured} onChange={e => setFormData({ ...formData, isFeatured: e.target.checked })} />} label="Featured" />
@@ -1096,7 +1383,7 @@ export default function AdminProductsPage() {
             </Grid>
           </DialogContent>
           <DialogActions sx={{ p: 3, bgcolor: '#f8fafc' }}>
-            <Button onClick={() => setIsModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleCloseProductDialog} disabled={isUploading}>Cancel</Button>
             <Button type="submit" variant="contained" disabled={isUploading} sx={{ bgcolor: '#6600cc' }}>Save Product</Button>
           </DialogActions>
         </Box>}

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import Product from '@/models/Product';
+import { hasProductImage } from '@/lib/productImages';
 
 export async function GET(request) {
   try {
@@ -42,11 +43,11 @@ export async function GET(request) {
     };
     if (slug) filter.slug = { $ne: slug };
 
-    const products = await Product.find(filter)
+    const products = (await Product.find(filter)
       .select('title slug price offerPrice comparePrice stock fitments images brand categories attributes hasInquiry whatsappNumber customTags')
       .sort({ isFeatured: -1, createdAt: -1 })
       .limit(8)
-      .lean();
+      .lean()).filter(hasProductImage);
 
     return NextResponse.json({ success: true, data: products }, { status: 200 });
   } catch (error) {

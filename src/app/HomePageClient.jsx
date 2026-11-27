@@ -11,6 +11,7 @@ import ProductCard from '@/components/ProductCard';
 import FitmentSearch from './FitmentSearch';
 import FeaturedCategories from '@/components/FeaturedCategories';
 import Footer from '@/components/Footer';
+import StoreHighlights from '@/components/StoreHighlights';
 
 const sampleReviews = [
   { authorName: 'Hammad Rahman', location: 'UAE', rating: 5, reviewText: 'Super RF Japan is a great shop with excellent products and services. The staff is friendly and knowledgeable, and they always go the extra mile to help customers. Highly recommended!', reviewDate: '27 July 2025' },
@@ -23,7 +24,7 @@ const sampleReviews = [
 ];
 
 export default function HomePageClient({ initialData, initialFitmentProducts, fitmentSearch }) {
-  const { banners, categories, brands, products, reviews } = initialData;
+  const { banners, categories, brands, products, reviews, storeHighlights = [] } = initialData;
   const { make: selectedMake, model: selectedModel, year: selectedYear } = fitmentSearch;
   const [fitmentProducts, setFitmentProducts] = useState(initialFitmentProducts);
   const [visibleProductCount, setVisibleProductCount] = useState(12);
@@ -103,7 +104,7 @@ export default function HomePageClient({ initialData, initialFitmentProducts, fi
     const selectedCategoryData = categories.find(category => category.name === selectedCategory);
     const categoryNames = selectedCategory ? [selectedCategory, ...(selectedCategoryData?.subcategories || []).map(sub => typeof sub === 'string' ? sub : sub.name)] : [];
     return catalog.filter(product => {
-      const matchesSearch = !q || product.title?.toLowerCase().includes(q) || product.description?.toLowerCase().includes(q) || product.categories?.some(category => category.toLowerCase().includes(q));
+      const matchesSearch = !q || product.title?.toLowerCase().includes(q) || product.sku?.toLowerCase().includes(q) || product.description?.toLowerCase().includes(q) || product.categories?.some(category => category.toLowerCase().includes(q));
       const matchesCategory = !selectedCategory || product.categories?.some(category => categoryNames.includes(category));
       return matchesSearch && matchesCategory;
     });
@@ -450,6 +451,8 @@ export default function HomePageClient({ initialData, initialFitmentProducts, fi
             </Paper>
           </Container>
         </Fade>
+
+        <StoreHighlights highlights={storeHighlights} />
 
         {/* 7. Brands Grid Fade */}
         {brandsForDisplay.length > 0 && (

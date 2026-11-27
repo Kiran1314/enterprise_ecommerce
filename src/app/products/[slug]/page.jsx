@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import dbConnect from '@/lib/dbConnect';
 import { getProductAvailableStock } from '@/lib/productAvailability';
 import { getProductPricing } from '@/lib/productPricing';
+import { getProductImageUrls, hasProductImage } from '@/lib/productImages';
 import { SITE_URL } from '@/lib/siteUrl';
 import Brand from '@/models/Brand';
 import Product from '@/models/Product';
@@ -46,13 +47,13 @@ export async function generateMetadata({ params }) {
   const { slug } = await params;
   const product = await getProductBySlug(slug);
 
-  if (!product) {
+  if (!product || !hasProductImage(product)) {
     return { title: 'Product Not Found', robots: { index: false, follow: true } };
   }
 
   const description = getProductDescription(product) || `${product.title} - ${product.sku}`;
   const canonicalUrl = getProductUrl(product.slug || slug);
-  const image = product.images?.map(getProductImageUrl).find(Boolean);
+  const image = getProductImageUrls(product).map(getProductImageUrl).find(Boolean);
   const title = `${product.title} (${product.sku}) | Super RF Japan`;
   const metaDescription = description.slice(0, 160);
 
@@ -80,12 +81,12 @@ export async function generateMetadata({ params }) {
 export default async function ProductPage({ params }) {
   const { slug } = await params;
   const product = await getProductBySlug(slug);
-  if (!product) notFound();
+  if (!product || !hasProductImage(product)) notFound();
 
   const settings = await Settings.findOne({}).select('currencyCode').lean();
   const pricing = getProductPricing(product);
   const productUrl = getProductUrl(product.slug || slug);
-  const images = product.images?.map(getProductImageUrl).filter(Boolean) || [];
+  const images = getProductImageUrls(product).map(getProductImageUrl).filter(Boolean);
   const productSchema = {
     '@context': 'https://schema.org',
     '@type': 'Product',

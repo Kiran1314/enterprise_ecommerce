@@ -1,5 +1,10 @@
 import mongoose from 'mongoose';
 
+const EnquiryCustomStatusSchema = new mongoose.Schema({
+  label: { type: String, required: true, trim: true, maxlength: 500 },
+  color: { type: String, required: true, match: /^#[a-f\d]{6}$/i }
+}, { _id: false });
+
 const SettingsSchema = new mongoose.Schema({
   currencySymbol: { type: String, default: '$' },
   currencyCode: { type: String, default: 'USD' },
@@ -9,6 +14,8 @@ const SettingsSchema = new mongoose.Schema({
   companyAddress: { type: String, default: 'SHARJAH AL KHAN ROD INDUSTRIAL AREA NO 2 BAGLAF BILDING NEAR BAGLAF MOSQUE' },
   taxId: { type: String, default: '' },
   categorySortMode: { type: String, enum: ['recent', 'alphabetical', 'custom'], default: 'recent' },
+  enquiryStatuses: { type: [EnquiryCustomStatusSchema], default: [] },
+  enquiryCustomStatuses: { type: [EnquiryCustomStatusSchema], default: [] },
   paymentSettings: {
     gateway: { type: String, default: 'auto' },
     region: { type: String, default: 'UAE' },

@@ -6,7 +6,7 @@ import {
   Checkbox, FormControlLabel, IconButton, Grid, Alert, Switch, Chip
 } from '@mui/material';
 import { 
-  Add, Download, Upload, Search, ChevronLeft, ChevronRight, Edit, Delete, Visibility, Close, DeleteSweep as DeleteIcon 
+  Add, Upload, Search, ChevronLeft, ChevronRight, Edit, Delete, Visibility, Close, DeleteSweep as DeleteIcon 
 } from '@mui/icons-material';
 
 export default function AdminBannerPage() {
@@ -23,7 +23,6 @@ export default function AdminBannerPage() {
   const [modalMode, setModalMode] = useState('CREATE'); // 'CREATE', 'EDIT', 'VIEW'
   const [currentBanner, setCurrentBanner] = useState(null);
 
-  const fileInputRef = useRef(null);
   const imageInputRef = useRef(null);
   const [imageUploading, setImageUploading] = useState(false);
   const [imageUploadError, setImageUploadError] = useState('');
@@ -111,6 +110,7 @@ export default function AdminBannerPage() {
       const res = await fetch(`/api/banners/${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.success) {
+        if (data.warning) alert(data.warning);
         fetchBanners();
       } else {
         alert(data.error || 'Failed to delete banner');
@@ -159,6 +159,7 @@ export default function AdminBannerPage() {
       const data = await res.json();
       if (data.success) {
         setIsModalOpen(false);
+        if (data.warning) alert(data.warning);
         fetchBanners();
       } else {
         alert(data.error || 'Operation failed');
@@ -190,50 +191,6 @@ export default function AdminBannerPage() {
     }
   };
 
-  const handleExport = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(filteredBanners, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", `banners_export_${Date.now()}.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
-  };
-
-  const handleBulkUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      try {
-        const json = JSON.parse(event.target.result);
-        if (!Array.isArray(json)) {
-          alert('Invalid JSON format.');
-          return;
-        }
-
-        let successCount = 0;
-        for (const item of json) {
-          const res = await fetch('/api/banners', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(item)
-          });
-          const data = await res.json();
-          if (data.success) successCount++;
-        }
-
-        alert(`Successfully imported ${successCount} banners.`);
-        fetchBanners();
-      } catch (err) {
-        alert('Failed to parse uploaded file.');
-      }
-    };
-    reader.readAsText(file);
-    e.target.value = '';
-  };
-
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4, flexWrap: 'wrap', gap: 2 }}>
@@ -242,29 +199,6 @@ export default function AdminBannerPage() {
           <Typography variant="body2" color="text.secondary">Manage homepage hero carousels, scrolling promotional sliders, and active ordering.</Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-          <Button 
-            variant="outlined" 
-            startIcon={<Download />} 
-            onClick={handleExport}
-            sx={{ borderRadius: 2, textTransform: 'none', borderColor: '#cbd5e1', color: '#334155' }}
-          >
-            Export Filtered ({filteredBanners.length})
-          </Button>
-          <Button 
-            variant="outlined" 
-            startIcon={<Upload />} 
-            onClick={() => fileInputRef.current?.click()}
-            sx={{ borderRadius: 2, textTransform: 'none', borderColor: '#6366f1', color: '#6366f1' }}
-          >
-            Bulk Upload JSON
-          </Button>
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={handleBulkUpload} 
-            accept=".json,.csv" 
-            style={{ display: 'none' }} 
-          />
           <Button 
             variant="contained" 
             startIcon={<Add />} 
@@ -275,14 +209,6 @@ export default function AdminBannerPage() {
           </Button>
         </Box>
       </Box>
-
-      {/* Bulk Upload Format Note */}
-      <Alert severity="info" sx={{ mb: 3, borderRadius: 2 }}>
-        <Typography variant="subtitle2" fontWeight="bold">Bulk Import Format Instruction (Excel / CSV / JSON)</Typography>
-        <Typography variant="body2" sx={{ mt: 0.5 }}>
-          Upload JSON array with keys: <code>title</code>, <code>subtitle</code>, <code>image</code>, <code>link</code>, <code>order</code> (Number), and <code>isActive</code> (Boolean).
-        </Typography>
-      </Alert>
 
       {/* Search Toolbar */}
       <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: 3, border: '1px solid #e2e8f0' }}>

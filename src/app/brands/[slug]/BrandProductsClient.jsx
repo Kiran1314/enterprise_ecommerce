@@ -7,7 +7,6 @@ import { FilterList } from '@mui/icons-material';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ProductCard from '@/components/ProductCard';
-import { getProductAvailableStock } from '@/lib/productAvailability';
 
 export default function BrandProductsClient({ slug, initialData }) {
   const { brand, categories, products, makes } = initialData;
@@ -102,7 +101,7 @@ export default function BrandProductsClient({ slug, initialData }) {
       );
       const matchesCategory = !selectedCategory || product.categories?.includes(selectedCategory);
       const matchesSearch = !normalizedSearch || product.title?.toLowerCase().includes(normalizedSearch) || product.sku?.toLowerCase().includes(normalizedSearch);
-      return getProductAvailableStock(product) > 0 && hasStockForSelectedVehicle && matchesCategory && matchesSearch;
+      return hasStockForSelectedVehicle && matchesCategory && matchesSearch;
     });
   }, [fitmentProducts, products, searchQuery, selectedCategory, make, model, year]);
 

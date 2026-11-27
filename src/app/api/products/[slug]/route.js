@@ -4,6 +4,7 @@ import Product from '@/models/Product';
 import Brand from '@/models/Brand';
 import { getAdmin } from '@/lib/adminAuth';
 import { recordActivity } from '@/lib/activity';
+import { collectProductImageUrls, deleteSecondaryImages } from '@/lib/secondaryImageStorage';
 
 function normalizeFitments(fitments) {
   if (!Array.isArray(fitments)) return { valid: true, data: [] };
@@ -59,14 +60,23 @@ export async function PUT(request, { params }) {
     if (!product) {
       return NextResponse.json({ success: false, error: 'Product not found' }, { status: 404 });
     }
+    const previousImageUrls = collectProductImageUrls(product);
     Object.assign(product, { ...body });
     product.fitments = fitments.data;
     product.markModified('fitments');
     await product.save();
     const savedProduct = await Product.findById(product._id).lean();
     await recordActivity({ actor: admin, actorType: 'Admin', action: 'updated', entityType: 'Product', entityId: product._id, description: `${admin.name} updated product ${product.title}.` });
+    const nextImageUrls = new Set(collectProductImageUrls(savedProduct));
+    let imageCleanupWarning;
+    try {
+      await deleteSecondaryImages(previousImageUrls.filter(url => !nextImageUrls.has(url)), 'products');
+    } catch (error) {
+      console.error(`Failed to delete removed images for product ${product._id}:`, error);
+      imageCleanupWarning = 'Product saved, but one or more removed images could not be deleted from storage.';
+    }
 
-    return NextResponse.json({ success: true, data: savedProduct }, { status: 200 });
+    return NextResponse.json({ success: true, data: savedProduct, warning: imageCleanupWarning }, { status: 200 });
   } catch (error) {
     console.error('Error updating product:', error);
     return NextResponse.json({ success: false, error: error.message || 'Internal Server Error' }, { status: 500 });
@@ -80,17 +90,23 @@ export async function DELETE(request, { params }) {
     await dbConnect();
     const { slug } = await params;
     
-    let product = await Product.findOneAndDelete({ slug });
-    if (!product && slug.match(/^[0-9a-fA-F]{24}$/)) {
-      product = await Product.findByIdAndDelete(slug);
-    }
+    let product = slug.match(/^[0-9a-fA-F]{24}$/) ? await Product.findById(slug) : null;
+    if (!product) product = await Product.findOne({ slug });
 
     if (!product) {
       return NextResponse.json({ success: false, error: 'Product not found' }, { status: 404 });
     }
+    await Product.findByIdAndDelete(product._id);
     await recordActivity({ actor: admin, actorType: 'Admin', action: 'deleted', entityType: 'Product', entityId: product._id, description: `${admin.name} deleted product ${product.title}.` });
+    let imageCleanupWarning;
+    try {
+      await deleteSecondaryImages(collectProductImageUrls(product), 'products');
+    } catch (error) {
+      console.error(`Failed to delete images for deleted product ${product._id}:`, error);
+      imageCleanupWarning = 'Product deleted, but one or more images could not be deleted from storage.';
+    }
 
-    return NextResponse.json({ success: true, data: {} }, { status: 200 });
+    return NextResponse.json({ success: true, data: {}, warning: imageCleanupWarning }, { status: 200 });
   } catch (error) {
     console.error('Error deleting product:', error);
     return NextResponse.json({ success: false, error: error.message || 'Internal Server Error' }, { status: 500 });
