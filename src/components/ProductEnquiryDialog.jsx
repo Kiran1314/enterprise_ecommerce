@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 
 const initialForm = { name: '', phone: '', email: '' };
 
@@ -9,7 +10,7 @@ export default function ProductEnquiryDialog({ product, open, onClose }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  if (!open) return null;
+  if (!open || typeof document === 'undefined') return null;
 
   const closeDialog = () => {
     if (submitting) return;
@@ -58,9 +59,9 @@ export default function ProductEnquiryDialog({ product, open, onClose }) {
     }
   };
 
-  return (
+  return createPortal((
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/60 p-3 sm:p-5"
+      className="fixed inset-0 z-[1400] flex items-center justify-center overflow-y-auto bg-black/60 p-3 sm:p-5"
       role="presentation"
       onMouseDown={event => {
         if (event.target === event.currentTarget) closeDialog();
@@ -106,5 +107,5 @@ export default function ProductEnquiryDialog({ product, open, onClose }) {
         </form>
       </section>
     </div>
-  );
+  ), document.body);
 }
