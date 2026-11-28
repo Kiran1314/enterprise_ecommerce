@@ -6,6 +6,7 @@ import Settings from '@/models/Settings';
 import { getProductEnquiryMessage } from '@/lib/productEnquiryMessage';
 import { sendProductEnquiryEmail } from '@/lib/enquiryEmails';
 import { getEnquiryStatuses } from '@/lib/getEnquiryStatuses';
+import { recordActivity } from '@/lib/activity';
 
 export const runtime = 'nodejs';
 
@@ -61,6 +62,17 @@ export async function POST(request) {
       message,
       status: statuses[0].label
     });
+
+    try {
+      await recordActivity({
+        action: 'created',
+        entityType: 'ProductEnquiry',
+        entityId: enquiry._id,
+        description: `New product enquiry received from ${name} for ${product.title}.`
+      });
+    } catch (error) {
+      console.error('Product enquiry activity could not be recorded:', error);
+    }
 
     let emailSent = false;
     let emailWarning = '';

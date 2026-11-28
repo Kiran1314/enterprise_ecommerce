@@ -759,7 +759,10 @@ export default function AdminProductsPage() {
   };
 
   const addImageField = () => setFormData({ ...formData, images: [...formData.images, ''] });
-  const addFitment = () => setFormData({ ...formData, fitments: [...formData.fitments, { make: '', model: '', year: '', stock: 0 }] });
+  const addFitment = () => setFormData(previous => ({
+    ...previous,
+    fitments: [...previous.fitments, { make: previous.brand?.name || '', model: '', year: '', stock: 0 }]
+  }));
   const updateFitment = (index, field, value) => setFormData(previous => ({
     ...previous,
     fitments: previous.fitments.map((fitment, fitmentIndex) => fitmentIndex === index ? { ...fitment, [field]: value } : fitment)
@@ -1231,7 +1234,15 @@ export default function AdminProductsPage() {
                 </Box>
                 {formData.fitments.map((fitment, index) => (
                   <Grid container spacing={1} key={index} sx={{ mb: 1.5, alignItems: 'center' }}>
-                    <Grid size={{ xs: 12, sm: 4 }}><TextField fullWidth size="small" label="Make" value={fitment.make} onChange={e => updateFitment(index, 'make', e.target.value)} /></Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <Autocomplete
+                        options={brands}
+                        getOptionLabel={brand => brand.name || ''}
+                        value={brands.find(brand => brand.name === fitment.make) || null}
+                        onChange={(event, brand) => updateFitment(index, 'make', brand?.name || '')}
+                        renderInput={params => <TextField {...params} fullWidth size="small" label="Make" />}
+                      />
+                    </Grid>
                     <Grid size={{ xs: 12, sm: 4 }}><TextField fullWidth size="small" label="Model" value={fitment.model} onChange={e => updateFitment(index, 'model', e.target.value)} /></Grid>
                     <Grid size={{ xs: 6, sm: 2 }}><TextField fullWidth size="small" label="Model Year" value={fitment.year} onChange={e => updateFitment(index, 'year', e.target.value)} /></Grid>
                     <Grid size={{ xs: 5, sm: 1.5 }}><TextField fullWidth type="number" size="small" label="Stock" value={fitment.stock ?? ''} onChange={e => updateFitment(index, 'stock', e.target.value === '' ? '' : Math.max(0, Math.floor(Number(e.target.value) || 0)))} slotProps={{ htmlInput: { min: 0, step: 1 } }} /></Grid>
